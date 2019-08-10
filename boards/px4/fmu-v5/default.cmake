@@ -127,5 +127,6 @@ px4_add_board(
 		rover_steering_control # Rover example app
 		segway
 		uuv_example_app
+		px4_jedi_example # First test
 
 	)
