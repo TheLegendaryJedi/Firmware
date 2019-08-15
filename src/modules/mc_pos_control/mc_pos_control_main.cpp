@@ -849,6 +849,9 @@ MulticopterPositionControl::start_flight_task()
 		case 1:
 			error =  _flight_tasks.switchTask(FlightTaskIndex::AutoLineSmoothVel);
 			break;
+		case 2:
+			error =  _flight_tasks.switchTask(FlightTaskIndex::RotateAndBackwards);
+			break;
 
 		default:
 			error =  _flight_tasks.switchTask(FlightTaskIndex::AutoLine);
