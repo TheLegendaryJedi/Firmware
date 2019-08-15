@@ -31,7 +31,7 @@
 #
 ############################################################################
 
-px4_add_library(FlightTAskRotateAndBackwards
+px4_add_library(FlightTaskRotateAndBackwards
 	FlightTaskRotateAndBackwards.cpp
 )
 

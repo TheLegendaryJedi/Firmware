@@ -39,7 +39,7 @@
 
 bool FlightTaskRotateAndBackwards::activate()
 {
-	bool ret = FlightTask:activate();
+	bool ret = FlightTask::activate();
 
 	_position_setpoint(0) = _position(0);
 	_position_setpoint(1) = _position(1);
@@ -61,7 +61,7 @@ bool FlightTaskRotateAndBackwards::update()
 		_yawspeed_setpoint = 45.0f * 3.142f / 180.f * -1.0f;
 	} else if (diff_z >= 0.0f) {
 		_velocity_setpoint(2) = -1.0f;
-		_yawspeed_setpoint = 45.0f * 3.142f / 180.f
+		_yawspeed_setpoint = 45.0f * 3.142f / 180.f;
 	}
 	return true;
 }
