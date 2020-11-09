@@ -42,7 +42,7 @@ namespace Bosch::BMI088::Gyroscope
 
 BMI088_Gyroscope::BMI088_Gyroscope(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
 				   int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio) :
-	BMI088(DRV_GYR_DEVTYPE_BMI088, "BMI088_Gyroscope", bus_option, bus, device, spi_mode, bus_frequency, drdy_gpio),
+	SPI(DRV_GYR_DEVTYPE_BMI088, "BMI088_Gyroscope", bus_option, bus, device, spi_mode, bus_frequency, drdy_gpio),
 	_px4_gyro(get_device_id(), rotation)
 {
 	if (drdy_gpio != 0) {

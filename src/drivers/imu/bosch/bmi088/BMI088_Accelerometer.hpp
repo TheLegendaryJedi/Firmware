@@ -35,6 +35,7 @@
 
 #include "BMI088.hpp"
 
+#include <lib/drivers/device/spi.h>
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 
 #include "Bosch_BMI088_Accelerometer_Registers.hpp"
@@ -42,7 +43,7 @@
 namespace Bosch::BMI088::Accelerometer
 {
 
-class BMI088_Accelerometer : public BMI088
+class BMI088_Accelerometer : public BMI088, public device::SPI
 {
 public:
 	BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation, int bus_frequency,

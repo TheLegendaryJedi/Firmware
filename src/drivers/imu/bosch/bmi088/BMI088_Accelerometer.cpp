@@ -42,7 +42,7 @@ namespace Bosch::BMI088::Accelerometer
 
 BMI088_Accelerometer::BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
 		int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio) :
-	BMI088(DRV_ACC_DEVTYPE_BMI088, "BMI088_Accelerometer", bus_option, bus, device, spi_mode, bus_frequency, drdy_gpio),
+	SPI(DRV_ACC_DEVTYPE_BMI088, "BMI088_Accelerometer", bus_option, bus, device, spi_mode, bus_frequency, drdy_gpio),
 	_px4_accel(get_device_id(), rotation)
 {
 	if (drdy_gpio != 0) {
@@ -597,6 +597,18 @@ void BMI088_Accelerometer::UpdateTemperature()
 	} else {
 		perf_count(_bad_transfer_perf);
 	}
+}
+
+int BMI088_Accelerometer::init()
+{
+	int ret = SPI::init();
+
+	if (ret != PX4_OK) {
+		DEVICE_DEBUG("SPI::init failed (%i)", ret);
+		return ret;
+	}
+
+	return Reset() ? 0 : -1;
 }
 
 } // namespace Bosch::BMI088::Accelerometer

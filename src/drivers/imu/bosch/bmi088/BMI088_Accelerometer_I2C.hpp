@@ -35,40 +35,42 @@
 
 #include "BMI088.hpp"
 
-#include <lib/drivers/device/spi.h>
-#include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
+#include <lib/drivers/device/i2c.h>
+#include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
 
-#include "Bosch_BMI088_Gyroscope_Registers.hpp"
+#include "Bosch_BMI088_Accelerometer_Registers.hpp"
 
-namespace Bosch::BMI088::Gyroscope
+namespace Bosch::BMI088::Accelerometer
 {
 
-class BMI088_Gyroscope : public device::SPI, public BMI088
+class BMI088_Accelerometer_I2C : public BMI088, public device::I2C, public IBMI088
 {
 public:
-	BMI088_Gyroscope(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation, int bus_frequency,
-			 spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
-	~BMI088_Gyroscope() override;
+	BMI088_Accelerometer_I2C(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation, int bus_frequency);
+	~BMI088_Accelerometer_I2C() override;
 
 	void RunImpl() override;
 	void print_status() override;
-
+	int init() override;
 private:
 	void exit_and_cleanup() override;
 
 	// Sensor Configuration
-	static constexpr uint32_t RATE{2000}; // 2000 Hz
+	static constexpr uint32_t RATE{1600}; // 1600 Hz
 	static constexpr float FIFO_SAMPLE_DT{1e6f / RATE};
 
-	static constexpr uint32_t FIFO_MAX_SAMPLES{math::min(FIFO::SIZE / sizeof(FIFO::DATA), sizeof(sensor_gyro_fifo_s::x) / sizeof(sensor_gyro_fifo_s::x[0]))};
+	static constexpr uint32_t FIFO_MAX_SAMPLES{math::min(FIFO::SIZE / sizeof(FIFO::DATA), sizeof(sensor_accel_fifo_s::x) / sizeof(sensor_accel_fifo_s::x[0]))};
 
 	// Transfer data
 	struct FIFOTransferBuffer {
-		uint8_t cmd{static_cast<uint8_t>(Register::FIFO_DATA) | DIR_READ};
+		uint8_t cmd{static_cast<uint8_t>(Register::FIFO_LENGTH_0) | DIR_READ};
+		uint8_t dummy{0};
+		uint8_t FIFO_LENGTH_0{0};
+		uint8_t FIFO_LENGTH_1{0};
 		FIFO::DATA f[FIFO_MAX_SAMPLES] {};
 	};
 	// ensure no struct padding
-	static_assert(sizeof(FIFOTransferBuffer) == (1 + FIFO_MAX_SAMPLES *sizeof(FIFO::DATA)));
+	static_assert(sizeof(FIFOTransferBuffer) == (4 + FIFO_MAX_SAMPLES *sizeof(FIFO::DATA)));
 
 	struct register_config_t {
 		Register reg;
@@ -79,7 +81,7 @@ private:
 	int probe() override;
 
 	bool Configure();
-	void ConfigureGyro();
+	void ConfigureAccel();
 	void ConfigureSampleRate(int sample_rate = 0);
 	void ConfigureFIFOWatermark(uint8_t samples);
 
@@ -94,33 +96,38 @@ private:
 	void RegisterWrite(Register reg, uint8_t value);
 	void RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits);
 
+	uint16_t FIFOReadCount();
 	bool FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples);
 	void FIFOReset();
 
-	PX4Gyroscope _px4_gyro;
+	void UpdateTemperature();
 
-	perf_counter_t _bad_register_perf{perf_alloc(PC_COUNT, MODULE_NAME"_gyro: bad register")};
-	perf_counter_t _bad_transfer_perf{perf_alloc(PC_COUNT, MODULE_NAME"_gyro: bad transfer")};
-	perf_counter_t _fifo_empty_perf{perf_alloc(PC_COUNT, MODULE_NAME"_gyro: FIFO empty")};
-	perf_counter_t _fifo_overflow_perf{perf_alloc(PC_COUNT, MODULE_NAME"_gyro: FIFO overflow")};
-	perf_counter_t _fifo_reset_perf{perf_alloc(PC_COUNT, MODULE_NAME"_gyro: FIFO reset")};
+	PX4Accelerometer _px4_accel;
+
+	perf_counter_t _bad_register_perf{perf_alloc(PC_COUNT, MODULE_NAME"_accel: bad register")};
+	perf_counter_t _bad_transfer_perf{perf_alloc(PC_COUNT, MODULE_NAME"_accel: bad transfer")};
+	perf_counter_t _fifo_empty_perf{perf_alloc(PC_COUNT, MODULE_NAME"_accel: FIFO empty")};
+	perf_counter_t _fifo_overflow_perf{perf_alloc(PC_COUNT, MODULE_NAME"_accel: FIFO overflow")};
+	perf_counter_t _fifo_reset_perf{perf_alloc(PC_COUNT, MODULE_NAME"_accel: FIFO reset")};
 	perf_counter_t _drdy_missed_perf{nullptr};
 
 	uint8_t _fifo_samples{static_cast<uint8_t>(_fifo_empty_interval_us / (1000000 / RATE))};
 
 	uint8_t _checked_register{0};
-	static constexpr uint8_t size_register_cfg{8};
+	static constexpr uint8_t size_register_cfg{10};
 	register_config_t _register_cfg[size_register_cfg] {
-		// Register                         | Set bits, Clear bits
-		{ Register::GYRO_RANGE,             GYRO_RANGE_BIT::gyro_range_2000_dps, 0 },
-		{ Register::GYRO_BANDWIDTH,         0, GYRO_BANDWIDTH_BIT::gyro_bw_532_Hz },
-		{ Register::GYRO_INT_CTRL,          GYRO_INT_CTRL_BIT::fifo_en, 0 },
-		{ Register::INT3_INT4_IO_CONF,      0, INT3_INT4_IO_CONF_BIT::Int3_od | INT3_INT4_IO_CONF_BIT::Int3_lvl },
-		{ Register::INT3_INT4_IO_MAP,       INT3_INT4_IO_MAP_BIT::Int3_fifo, 0 },
-		{ Register::FIFO_WM_ENABLE,         FIFO_WM_ENABLE_BIT::fifo_wm_enable, 0 },
-		{ Register::FIFO_CONFIG_0,          0, 0 }, // fifo_water_mark_level_trigger_retain<6:0>
-		{ Register::FIFO_CONFIG_1,          FIFO_CONFIG_1_BIT::FIFO_MODE, 0 },
+		// Register                        | Set bits, Clear bits
+		{ Register::ACC_PWR_CONF,          0, ACC_PWR_CONF_BIT::acc_pwr_save },
+		{ Register::ACC_PWR_CTRL,          ACC_PWR_CTRL_BIT::acc_enable, 0 },
+		{ Register::ACC_CONF,              ACC_CONF_BIT::acc_bwp_Normal | ACC_CONF_BIT::acc_odr_1600, Bit1 | Bit0 },
+		{ Register::ACC_RANGE,             ACC_RANGE_BIT::acc_range_24g, 0 },
+		{ Register::FIFO_WTM_0,            0, 0 },
+		{ Register::FIFO_WTM_1,            0, 0 },
+		{ Register::FIFO_CONFIG_0,         FIFO_CONFIG_0_BIT::BIT1_ALWAYS | FIFO_CONFIG_0_BIT::FIFO_mode, 0 },
+		{ Register::FIFO_CONFIG_1,         FIFO_CONFIG_1_BIT::BIT4_ALWAYS | FIFO_CONFIG_1_BIT::Acc_en, 0 },
+		{ Register::INT1_IO_CONF,          INT1_IO_CONF_BIT::int1_out, 0 },
+		{ Register::INT1_INT2_MAP_DATA,    INT1_INT2_MAP_DATA_BIT::int1_fwm, 0},
 	};
 };
 
-} // namespace Bosch::BMI088::Gyroscope
+} // namespace Bosch::BMI088::Accelerometer

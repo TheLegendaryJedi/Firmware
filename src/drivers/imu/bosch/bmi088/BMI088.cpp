@@ -34,6 +34,7 @@
 #include "BMI088.hpp"
 
 #include "BMI088_Accelerometer.hpp"
+#include "BMI088_Accelerometer_I2C.hpp"
 #include "BMI088_Gyroscope.hpp"
 
 I2CSPIDriverBase *BMI088::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
@@ -42,12 +43,20 @@ I2CSPIDriverBase *BMI088::instantiate(const BusCLIArguments &cli, const BusInsta
 	BMI088 *instance = nullptr;
 
 	if (cli.type == DRV_ACC_DEVTYPE_BMI088) {
-		instance = new Bosch::BMI088::Accelerometer::BMI088_Accelerometer(iterator.configuredBusOption(), iterator.bus(),
-				iterator.devid(), cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
-
+		if (iterator.busType() == BOARD_I2C_BUS) {
+			instance = new Bosch::BMI088::Accelerometer::BMI088_Accelerometer_I2C(iterator.configuredBusOption(), iterator.bus(),
+					cli.i2c_address, cli.rotation, cli.bus_frequency);
+		} else if (iterator.busType() == BOARD_SPI_BUS) {
+			instance = new Bosch::BMI088::Accelerometer::BMI088_Accelerometer(iterator.configuredBusOption(), iterator.bus(),
+					iterator.devid(), cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
+		}
 	} else if (cli.type == DRV_GYR_DEVTYPE_BMI088) {
-		instance = new Bosch::BMI088::Gyroscope::BMI088_Gyroscope(iterator.configuredBusOption(), iterator.bus(),
-				iterator.devid(), cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
+		if (iterator.busType() == BOARD_I2C_BUS) {
+
+		} else if (iterator.busType() == BOARD_SPI_BUS) {
+			instance = new Bosch::BMI088::Gyroscope::BMI088_Gyroscope(iterator.configuredBusOption(), iterator.bus(),
+					iterator.devid(), cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
+		}
 	}
 
 	if (!instance) {
@@ -63,24 +72,10 @@ I2CSPIDriverBase *BMI088::instantiate(const BusCLIArguments &cli, const BusInsta
 	return instance;
 }
 
-BMI088::BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device,
-	       enum spi_mode_e mode, uint32_t frequency, spi_drdy_gpio_t drdy_gpio) :
-	SPI(devtype, name, bus, device, mode, frequency),
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, devtype),
+BMI088::BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device, IBMI088 *interface) :
+	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus, devtype),
 	_drdy_gpio(drdy_gpio)
 {
-}
-
-int BMI088::init()
-{
-	int ret = SPI::init();
-
-	if (ret != PX4_OK) {
-		DEVICE_DEBUG("SPI::init failed (%i)", ret);
-		return ret;
-	}
-
-	return Reset() ? 0 : -1;
 }
 
 bool BMI088::Reset()

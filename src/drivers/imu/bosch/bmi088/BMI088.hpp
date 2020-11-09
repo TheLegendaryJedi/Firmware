@@ -34,17 +34,22 @@
 #pragma once
 
 #include <drivers/drv_hrt.h>
-#include <lib/drivers/device/spi.h>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/i2c_spi_buses.h>
 
 static constexpr int16_t combine(uint8_t msb, uint8_t lsb) { return (msb << 8u) | lsb; }
-
-class BMI088 : public device::SPI, public I2CSPIDriver<BMI088>
+class IBMI088
 {
 public:
-	BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device, enum spi_mode_e mode,
-	       uint32_t frequency, spi_drdy_gpio_t drdy_gpio);
+	virtual ~IBMI088() = default;
+
+	virtual int init() = 0;
+};
+
+class BMI088 : public I2CSPIDriver<BMI088>
+{
+public:
+	BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device, IBMI088 *interface);
 
 	virtual ~BMI088() = default;
 
@@ -54,8 +59,9 @@ public:
 
 	virtual void RunImpl() = 0;
 
-	int init() override;
 	virtual void print_status() = 0;
+
+	int init();
 
 protected:
 
@@ -83,3 +89,6 @@ protected:
 	uint16_t _fifo_empty_interval_us{2500}; // 2500 us / 400 Hz transfer interval
 
 };
+/* interface factories */
+extern IBMI088 *bmp388_spi_interface(uint8_t busnum, uint32_t device, int bus_frequency, spi_mode_e spi_mode);
+extern IBMI088 *bmp388_i2c_interface(uint8_t busnum, uint32_t device, int bus_frequency);
