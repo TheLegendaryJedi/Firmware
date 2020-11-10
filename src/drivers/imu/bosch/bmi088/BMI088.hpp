@@ -36,6 +36,7 @@
 #include <drivers/drv_hrt.h>
 #include <lib/perf/perf_counter.h>
 #include <px4_platform_common/i2c_spi_buses.h>
+#include <lib/cdev/CDev.hpp>
 
 static constexpr int16_t combine(uint8_t msb, uint8_t lsb) { return (msb << 8u) | lsb; }
 
@@ -85,7 +86,7 @@ protected:
 	IBMI088	*_interface{nullptr};
 };
 /* interface factories */
-extern IBMI088 *bmi088_acc_spi_interface(I2CSPIBusOption bus_option, uint8_t busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
-extern IBMI088 *bmi088_acc_i2c_interface(I2CSPIBusOption bus_option, uint8_t busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
-extern IBMI088 *bmi088_gyro_spi_interface(I2CSPIBusOption bus_option, uint8_t busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
-extern IBMI088 *bmi088_gyro_i2c_interface(I2CSPIBusOption bus_option, uint8_t busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
+extern IBMI088 *bmi088_acc_spi_interface(I2CSPIBusOption bus_option, int busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
+extern IBMI088 *bmi088_acc_i2c_interface(I2CSPIBusOption bus_option, int busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
+extern IBMI088 *bmi088_gyro_spi_interface(I2CSPIBusOption bus_option, int busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
+extern IBMI088 *bmi088_gyro_i2c_interface(I2CSPIBusOption bus_option, int busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);

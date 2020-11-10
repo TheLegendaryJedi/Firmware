@@ -62,9 +62,9 @@ public:
 	void print_status();
 	bool Reset();// 2500 us / 400 Hz transfer interval
 	int init();
+	void exit_and_cleanup() override;
 
 private:
-	void exit_and_cleanup();
 
 	spi_drdy_gpio_t _drdy_gpio;
 	// Sensor Configuration
@@ -161,4 +161,5 @@ private:
 
 	uint16_t _fifo_empty_interval_us{2500};
 };
+
 }

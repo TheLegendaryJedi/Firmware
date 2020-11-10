@@ -63,10 +63,9 @@ public:
 	bool Reset();// 2500 us / 400 Hz transfer interval
 
 	int init();
+	void exit_and_cleanup() override;
 
 private:
-	void exit_and_cleanup();
-
 	spi_drdy_gpio_t _drdy_gpio;
 	// Sensor Configuration
 	static constexpr uint32_t RATE{1600}; // 1600 Hz

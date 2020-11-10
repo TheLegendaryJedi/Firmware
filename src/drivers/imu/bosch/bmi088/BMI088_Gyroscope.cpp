@@ -36,13 +36,13 @@
 
 using namespace time_literals;
 
-namespace Bosch::BMI088::Gyroscope
-{
 IBMI088 *bmi088_gyro_spi_interface(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
 		int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio)
 {
-	return new BMI088_Gyroscope(bus_option, bus, device, rotation, bus_frequency, spi_mode, drdy_gpio);
+	return new Bosch::BMI088::Gyroscope::BMI088_Gyroscope(bus_option, bus, device, rotation, bus_frequency, spi_mode, drdy_gpio);
 }
+namespace Bosch::BMI088::Gyroscope
+{
 BMI088_Gyroscope::BMI088_Gyroscope(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
 				   int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio) :
 	SPI(DRV_GYR_DEVTYPE_BMI088, "BMI088_Gyroscope", bus, device, spi_mode, bus_frequency),

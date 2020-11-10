@@ -57,9 +57,9 @@ public:
 	char* get_name() override {return (char *)"BMI088_Gyroscope";}
 	bool Reset();// 2500 us / 400 Hz transfer interval
 	int init();
+	void exit_and_cleanup() override;
 
 private:
-	void exit_and_cleanup();
 
 	spi_drdy_gpio_t _drdy_gpio;
 	// Sensor Configuration

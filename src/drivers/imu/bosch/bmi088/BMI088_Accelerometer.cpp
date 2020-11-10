@@ -37,13 +37,16 @@
 
 using namespace time_literals;
 
-namespace Bosch::BMI088::Accelerometer
-{
 IBMI088 *bmi088_acc_spi_interface(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
 		int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio)
 {
-	return new BMI088_Accelerometer(bus_option, bus, device, rotation, bus_frequency, spi_mode, drdy_gpio);
+	return new Bosch::BMI088::Accelerometer::BMI088_Accelerometer(bus_option, bus, device, rotation, bus_frequency, spi_mode, drdy_gpio);
 }
+namespace Bosch::BMI088::Accelerometer
+{
+
+
+
 BMI088_Accelerometer::BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
 		int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio) :
 	SPI(DRV_ACC_DEVTYPE_BMI088, "BMI088_Accelerometer", bus, device, spi_mode, bus_frequency),
