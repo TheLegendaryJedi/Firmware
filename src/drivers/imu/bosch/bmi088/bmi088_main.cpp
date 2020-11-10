@@ -49,6 +49,42 @@ void BMI088::print_usage()
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 }
 
+I2CSPIDriverBase *BMI088::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
+				      int runtime_instance)
+{
+	IBMI088 *instance = nullptr;
+
+	if (cli.type == DRV_ACC_DEVTYPE_BMI088) {
+		if (iterator.busType() == BOARD_I2C_BUS) {
+			instance = bmi088_acc_i2c_interface(iterator.configuredBusOption(), iterator.bus(),
+					cli.i2c_address, cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
+		} else if (iterator.busType() == BOARD_SPI_BUS) {
+			instance = bmi088_acc_spi_interface(iterator.configuredBusOption(), iterator.bus(),
+					iterator.devid(), cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
+		}
+	} else if (cli.type == DRV_GYR_DEVTYPE_BMI088) {
+		if (iterator.busType() == BOARD_I2C_BUS) {
+
+		} else if (iterator.busType() == BOARD_SPI_BUS) {
+			instance = bmi088_gyro_spi_interface(iterator.configuredBusOption(), iterator.bus(),
+					iterator.devid(), cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
+		}
+	}
+
+	BMI088 *dev = new BMI088(instance->get_dev_type(), instance->get_name(), iterator.configuredBusOption(), iterator.bus(), iterator.devid(), cli.spi_mode, iterator.DRDYGPIO(), instance);
+
+	if (!dev) {
+		PX4_ERR("alloc failed");
+		return nullptr;
+	}
+
+	if (OK != dev->init()) {
+		delete dev;
+		return nullptr;
+	}
+
+	return dev;
+}
 extern "C" int bmi088_main(int argc, char *argv[])
 {
 	int ch;

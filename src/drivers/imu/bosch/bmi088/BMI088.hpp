@@ -38,57 +38,54 @@
 #include <px4_platform_common/i2c_spi_buses.h>
 
 static constexpr int16_t combine(uint8_t msb, uint8_t lsb) { return (msb << 8u) | lsb; }
+
 class IBMI088
 {
 public:
 	virtual ~IBMI088() = default;
 
-	virtual int init() = 0;
+	void print_status();
+
+	virtual int init();
+
+	void exit_and_cleanup();
+
+	virtual void RunImpl();
+
+	virtual u_int32_t get_device_id() const = 0;
+
+	virtual u_int8_t get_dev_type() const = 0;
+
+	virtual char * get_name();
+
+	bool Reset();// 2500 us / 400 Hz transfer interval
+private:
+
 };
 
 class BMI088 : public I2CSPIDriver<BMI088>
 {
 public:
-	BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device, IBMI088 *interface);
+	BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device, enum spi_mode_e mode,
+	spi_drdy_gpio_t drdy_gpio, IBMI088 *interface);
 
 	virtual ~BMI088() = default;
 
 	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
 					     int runtime_instance);
-	static void print_usage();
-
-	virtual void RunImpl() = 0;
-
-	virtual void print_status() = 0;
-
 	int init();
+	static void print_usage();
+	void print_status();
+	void exit_and_cleanup();
+
+	virtual void RunImpl();
 
 protected:
-
 	bool Reset();
-
-	const spi_drdy_gpio_t _drdy_gpio;
-
-	hrt_abstime _reset_timestamp{0};
-	hrt_abstime _last_config_check_timestamp{0};
-	hrt_abstime _temperature_update_timestamp{0};
-	int _failure_count{0};
-
-	px4::atomic<uint32_t> _drdy_fifo_read_samples{0};
-	bool _data_ready_interrupt_enabled{false};
-
-	enum class STATE : uint8_t {
-		RESET,
-		WAIT_FOR_RESET,
-		CONFIGURE,
-		FIFO_READ,
-	};
-
-	STATE _state{STATE::RESET};
-
-	uint16_t _fifo_empty_interval_us{2500}; // 2500 us / 400 Hz transfer interval
-
+	IBMI088	*_interface{nullptr};
 };
 /* interface factories */
-extern IBMI088 *bmp388_spi_interface(uint8_t busnum, uint32_t device, int bus_frequency, spi_mode_e spi_mode);
-extern IBMI088 *bmp388_i2c_interface(uint8_t busnum, uint32_t device, int bus_frequency);
+extern IBMI088 *bmi088_acc_spi_interface(I2CSPIBusOption bus_option, uint8_t busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
+extern IBMI088 *bmi088_acc_i2c_interface(I2CSPIBusOption bus_option, uint8_t busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
+extern IBMI088 *bmi088_gyro_spi_interface(I2CSPIBusOption bus_option, uint8_t busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
+extern IBMI088 *bmi088_gyro_i2c_interface(I2CSPIBusOption bus_option, uint8_t busnum, uint32_t device, enum Rotation rotation, int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);

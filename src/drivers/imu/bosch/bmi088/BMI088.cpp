@@ -33,55 +33,32 @@
 
 #include "BMI088.hpp"
 
-#include "BMI088_Accelerometer.hpp"
-#include "BMI088_Accelerometer_I2C.hpp"
-#include "BMI088_Gyroscope.hpp"
-
-I2CSPIDriverBase *BMI088::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-				      int runtime_instance)
+BMI088::BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device, enum spi_mode_e mode, spi_drdy_gpio_t drdy_gpio, IBMI088 *interface):
+	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus, devtype)
 {
-	BMI088 *instance = nullptr;
-
-	if (cli.type == DRV_ACC_DEVTYPE_BMI088) {
-		if (iterator.busType() == BOARD_I2C_BUS) {
-			instance = new Bosch::BMI088::Accelerometer::BMI088_Accelerometer_I2C(iterator.configuredBusOption(), iterator.bus(),
-					cli.i2c_address, cli.rotation, cli.bus_frequency);
-		} else if (iterator.busType() == BOARD_SPI_BUS) {
-			instance = new Bosch::BMI088::Accelerometer::BMI088_Accelerometer(iterator.configuredBusOption(), iterator.bus(),
-					iterator.devid(), cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
-		}
-	} else if (cli.type == DRV_GYR_DEVTYPE_BMI088) {
-		if (iterator.busType() == BOARD_I2C_BUS) {
-
-		} else if (iterator.busType() == BOARD_SPI_BUS) {
-			instance = new Bosch::BMI088::Gyroscope::BMI088_Gyroscope(iterator.configuredBusOption(), iterator.bus(),
-					iterator.devid(), cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
-		}
-	}
-
-	if (!instance) {
-		PX4_ERR("alloc failed");
-		return nullptr;
-	}
-
-	if (OK != instance->init()) {
-		delete instance;
-		return nullptr;
-	}
-
-	return instance;
 }
 
-BMI088::BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device, IBMI088 *interface) :
-	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(interface->get_device_id()), bus_option, bus, devtype),
-	_drdy_gpio(drdy_gpio)
+int BMI088::init()
 {
+	return _interface->init();
 }
 
 bool BMI088::Reset()
 {
-	_state = STATE::RESET;
-	ScheduleClear();
-	ScheduleNow();
-	return true;
+	return _interface->Reset();
+}
+
+void BMI088::exit_and_cleanup()
+{
+	_interface->exit_and_cleanup();
+}
+
+void BMI088::print_status()
+{
+	_interface->print_status();
+}
+
+void BMI088::RunImpl()
+{
+	_interface->RunImpl();
 }

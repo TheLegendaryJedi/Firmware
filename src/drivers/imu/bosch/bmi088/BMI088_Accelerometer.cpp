@@ -39,16 +39,22 @@ using namespace time_literals;
 
 namespace Bosch::BMI088::Accelerometer
 {
-
+IBMI088 *bmi088_acc_spi_interface(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
+		int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio)
+{
+	return new BMI088_Accelerometer(bus_option, bus, device, rotation, bus_frequency, spi_mode, drdy_gpio);
+}
 BMI088_Accelerometer::BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
 		int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio) :
-	SPI(DRV_ACC_DEVTYPE_BMI088, "BMI088_Accelerometer", bus_option, bus, device, spi_mode, bus_frequency, drdy_gpio),
+	SPI(DRV_ACC_DEVTYPE_BMI088, "BMI088_Accelerometer", bus, device, spi_mode, bus_frequency),
+	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, DRV_ACC_DEVTYPE_BMI088),
 	_px4_accel(get_device_id(), rotation)
 {
 	if (drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME"_accel: DRDY missed");
 	}
 
+	_drdy_gpio = drdy_gpio;
 	ConfigureSampleRate(_px4_accel.get_max_rate_hz());
 }
 
@@ -62,16 +68,20 @@ BMI088_Accelerometer::~BMI088_Accelerometer()
 	perf_free(_drdy_missed_perf);
 }
 
+bool BMI088_Accelerometer::Reset()
+{
+	_state = STATE::RESET;
+	ScheduleClear();
+	ScheduleNow();
+	return true;
+}
 void BMI088_Accelerometer::exit_and_cleanup()
 {
 	DataReadyInterruptDisable();
-	I2CSPIDriverBase::exit_and_cleanup();
 }
 
 void BMI088_Accelerometer::print_status()
 {
-	I2CSPIDriverBase::print_status();
-
 	PX4_INFO("FIFO empty interval: %d us (%.1f Hz)", _fifo_empty_interval_us, 1e6 / _fifo_empty_interval_us);
 
 	perf_print_counter(_bad_register_perf);

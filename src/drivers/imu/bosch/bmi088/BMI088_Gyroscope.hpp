@@ -34,28 +34,34 @@
 #pragma once
 
 #include "BMI088.hpp"
-
 #include <lib/drivers/device/spi.h>
 #include <lib/drivers/gyroscope/PX4Gyroscope.hpp>
-
 #include "Bosch_BMI088_Gyroscope_Registers.hpp"
 
 namespace Bosch::BMI088::Gyroscope
 {
 
-class BMI088_Gyroscope : public device::SPI, public BMI088
+class BMI088_Gyroscope : public device::SPI, public IBMI088, public I2CSPIDriver<BMI088_Gyroscope>
 {
 public:
 	BMI088_Gyroscope(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation, int bus_frequency,
 			 spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
 	~BMI088_Gyroscope() override;
 
-	void RunImpl() override;
-	void print_status() override;
+	void RunImpl();
+	void print_status();
+	uint32_t get_device_id() const override { return device::SPI::get_device_id(); }
+
+	uint8_t get_dev_type() const override { return DRV_ACC_DEVTYPE_BMI088; }
+
+	char* get_name() override {return (char *)"BMI088_Gyroscope";}
+	bool Reset();// 2500 us / 400 Hz transfer interval
+	int init();
 
 private:
-	void exit_and_cleanup() override;
+	void exit_and_cleanup();
 
+	spi_drdy_gpio_t _drdy_gpio;
 	// Sensor Configuration
 	static constexpr uint32_t RATE{2000}; // 2000 Hz
 	static constexpr float FIFO_SAMPLE_DT{1e6f / RATE};
@@ -76,7 +82,7 @@ private:
 		uint8_t clear_bits{0};
 	};
 
-	int probe() override;
+	int probe();
 
 	bool Configure();
 	void ConfigureGyro();
@@ -121,6 +127,26 @@ private:
 		{ Register::FIFO_CONFIG_0,          0, 0 }, // fifo_water_mark_level_trigger_retain<6:0>
 		{ Register::FIFO_CONFIG_1,          FIFO_CONFIG_1_BIT::FIFO_MODE, 0 },
 	};
+
+
+	hrt_abstime _reset_timestamp{0};
+	hrt_abstime _last_config_check_timestamp{0};
+	hrt_abstime _temperature_update_timestamp{0};
+	int _failure_count{0};
+
+	px4::atomic<uint32_t> _drdy_fifo_read_samples{0};
+	bool _data_ready_interrupt_enabled{false};
+
+	enum class STATE : uint8_t {
+		RESET,
+		WAIT_FOR_RESET,
+		CONFIGURE,
+		FIFO_READ,
+	};
+
+	STATE _state{STATE::RESET};
+
+	uint16_t _fifo_empty_interval_us{2500};
 };
 
 } // namespace Bosch::BMI088::Gyroscope

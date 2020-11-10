@@ -34,28 +34,40 @@
 #pragma once
 
 #include "BMI088.hpp"
-
 #include <lib/drivers/device/spi.h>
+#include <drivers/drv_hrt.h>
+#include <lib/perf/perf_counter.h>
+#include <px4_platform_common/i2c_spi_buses.h>
 #include <lib/drivers/accelerometer/PX4Accelerometer.hpp>
-
 #include "Bosch_BMI088_Accelerometer_Registers.hpp"
+#include <px4_platform_common/module.h>
 
 namespace Bosch::BMI088::Accelerometer
 {
 
-class BMI088_Accelerometer : public BMI088, public device::SPI
+class BMI088_Accelerometer : public device::SPI, public IBMI088, public I2CSPIDriver<BMI088_Accelerometer>
 {
 public:
 	BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation, int bus_frequency,
 			     spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio);
 	~BMI088_Accelerometer() override;
 
-	void RunImpl() override;
-	void print_status() override;
+	void RunImpl();
+	void print_status();
+
+	uint32_t get_device_id() const override { return device::SPI::get_device_id(); }
+
+	uint8_t get_dev_type() const override { return DRV_ACC_DEVTYPE_BMI088; }
+
+	char* get_name() override {return (char *)"BMI088_Accelerometer";}
+	bool Reset();// 2500 us / 400 Hz transfer interval
+
+	int init();
 
 private:
-	void exit_and_cleanup() override;
+	void exit_and_cleanup();
 
+	spi_drdy_gpio_t _drdy_gpio;
 	// Sensor Configuration
 	static constexpr uint32_t RATE{1600}; // 1600 Hz
 	static constexpr float FIFO_SAMPLE_DT{1e6f / RATE};
@@ -79,7 +91,7 @@ private:
 		uint8_t clear_bits{0};
 	};
 
-	int probe() override;
+	int probe();
 
 	bool Configure();
 	void ConfigureAccel();
@@ -129,6 +141,27 @@ private:
 		{ Register::INT1_IO_CONF,          INT1_IO_CONF_BIT::int1_out, 0 },
 		{ Register::INT1_INT2_MAP_DATA,    INT1_INT2_MAP_DATA_BIT::int1_fwm, 0},
 	};
+
+
+	hrt_abstime _reset_timestamp{0};
+	hrt_abstime _last_config_check_timestamp{0};
+	hrt_abstime _temperature_update_timestamp{0};
+	int _failure_count{0};
+
+	px4::atomic<uint32_t> _drdy_fifo_read_samples{0};
+	bool _data_ready_interrupt_enabled{false};
+
+	enum class STATE : uint8_t {
+		RESET,
+		WAIT_FOR_RESET,
+		CONFIGURE,
+		FIFO_READ,
+	};
+
+	STATE _state{STATE::RESET};
+
+	uint16_t _fifo_empty_interval_us{2500};
+
 };
 
 } // namespace Bosch::BMI088::Accelerometer

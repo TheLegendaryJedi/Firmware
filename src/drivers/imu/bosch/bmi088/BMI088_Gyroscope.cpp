@@ -32,23 +32,28 @@
  ****************************************************************************/
 
 #include "BMI088_Gyroscope.hpp"
-
 #include <px4_platform/board_dma_alloc.h>
 
 using namespace time_literals;
 
 namespace Bosch::BMI088::Gyroscope
 {
-
+IBMI088 *bmi088_gyro_spi_interface(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
+		int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio)
+{
+	return new BMI088_Gyroscope(bus_option, bus, device, rotation, bus_frequency, spi_mode, drdy_gpio);
+}
 BMI088_Gyroscope::BMI088_Gyroscope(I2CSPIBusOption bus_option, int bus, uint32_t device, enum Rotation rotation,
 				   int bus_frequency, spi_mode_e spi_mode, spi_drdy_gpio_t drdy_gpio) :
-	SPI(DRV_GYR_DEVTYPE_BMI088, "BMI088_Gyroscope", bus_option, bus, device, spi_mode, bus_frequency, drdy_gpio),
+	SPI(DRV_GYR_DEVTYPE_BMI088, "BMI088_Gyroscope", bus, device, spi_mode, bus_frequency),
+	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, DRV_GYR_DEVTYPE_BMI088),
 	_px4_gyro(get_device_id(), rotation)
 {
 	if (drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME"_gyro: DRDY missed");
 	}
 
+	_drdy_gpio = drdy_gpio;
 	ConfigureSampleRate(_px4_gyro.get_max_rate_hz());
 }
 
@@ -62,16 +67,21 @@ BMI088_Gyroscope::~BMI088_Gyroscope()
 	perf_free(_drdy_missed_perf);
 }
 
+bool BMI088_Gyroscope::Reset()
+{
+	_state = STATE::RESET;
+	ScheduleClear();
+	ScheduleNow();
+	return true;
+}
+
 void BMI088_Gyroscope::exit_and_cleanup()
 {
 	DataReadyInterruptDisable();
-	I2CSPIDriverBase::exit_and_cleanup();
 }
 
 void BMI088_Gyroscope::print_status()
 {
-	I2CSPIDriverBase::print_status();
-
 	PX4_INFO("FIFO empty interval: %d us (%.1f Hz)", _fifo_empty_interval_us, 1e6 / _fifo_empty_interval_us);
 
 	perf_print_counter(_bad_register_perf);
