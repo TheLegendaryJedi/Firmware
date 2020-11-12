@@ -47,9 +47,17 @@ static constexpr uint8_t Bit6 = (1 << 6);
 static constexpr uint8_t Bit7 = (1 << 7);
 
 static constexpr uint32_t SPI_SPEED = 10 * 1000 * 1000; // 10MHz SPI serial interface
+
+static constexpr uint32_t I2C_400_SPEED = 400 * 1000; // 400kHz I2C interface
+static constexpr uint32_t I2C_200_SPEED = 200 * 1000; // 200kHz I2C interface
+static constexpr uint32_t I2C_100_SPEED = 100 * 1000; // 100kHz I2C interface
+
 static constexpr uint8_t DIR_READ = 0x80;
 
 static constexpr uint8_t ID = 0x0F;
+
+static constexpr uint8_t GYRO_I2C_ADDR_PRIMARY = 0x68;
+static constexpr uint8_t GYRO_I2C_ADDR_SECONDARY = 0x69;
 
 enum class Register : uint8_t {
 	GYRO_CHIP_ID      = 0x00,

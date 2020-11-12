@@ -12,7 +12,7 @@ px4_add_board(
 		gps
 		optical_flow/pmw3901
 		pwm_out
-		imu/bosch/bmi088
+		imu/bosch/bmi088/bmi088_i2c
 		barometer/bmp388
 	MODULES
 		attitude_estimator_q

@@ -31,55 +31,62 @@
  *
  ****************************************************************************/
 
-#pragma once
+#include "BMI088.hpp"
 
-#include <drivers/drv_hrt.h>
-#include <lib/drivers/device/spi.h>
-#include <lib/perf/perf_counter.h>
-#include <px4_platform_common/i2c_spi_buses.h>
+#include "BMI088_Accelerometer.hpp"
+#include "BMI088_Gyroscope.hpp"
 
-static constexpr int16_t combine(uint8_t msb, uint8_t lsb) { return (msb << 8u) | lsb; }
-
-class BMI088 : public device::SPI, public I2CSPIDriver<BMI088>
+I2CSPIDriverBase *BMI088::instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
+				      int runtime_instance)
 {
-public:
-	BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device, enum spi_mode_e mode,
-	       uint32_t frequency, spi_drdy_gpio_t drdy_gpio);
+	BMI088 *instance = nullptr;
 
-	virtual ~BMI088() = default;
+	if (cli.type == DRV_ACC_DEVTYPE_BMI088) {
+		instance = new Bosch::BMI088::Accelerometer::BMI088_Accelerometer(iterator.configuredBusOption(), iterator.bus(),
+				cli.i2c_address, cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
 
-	static I2CSPIDriverBase *instantiate(const BusCLIArguments &cli, const BusInstanceIterator &iterator,
-					     int runtime_instance);
-	static void print_usage();
+	} else if (cli.type == DRV_GYR_DEVTYPE_BMI088) {
+		instance = new Bosch::BMI088::Gyroscope::BMI088_Gyroscope(iterator.configuredBusOption(), iterator.bus(),
+				cli.i2c_address, cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
+	}
 
-	virtual void RunImpl() = 0;
+	if (!instance) {
+		PX4_ERR("alloc failed");
+		return nullptr;
+	}
 
-	int init() override;
-	virtual void print_status() = 0;
+	if (OK != instance->init()) {
+		delete instance;
+		return nullptr;
+	}
 
-protected:
+	return instance;
+}
 
-	bool Reset();
+BMI088::BMI088(uint8_t devtype, const char *name, I2CSPIBusOption bus_option, int bus, uint32_t device,
+	       enum spi_mode_e mode, uint32_t frequency, spi_drdy_gpio_t drdy_gpio) :
+	I2C(devtype, name, bus, device, frequency),
+	I2CSPIDriver(MODULE_NAME, px4::device_bus_to_wq(get_device_id()), bus_option, bus, devtype),
+	_drdy_gpio(drdy_gpio)
+{
+}
 
-	const spi_drdy_gpio_t _drdy_gpio;
+int BMI088::init()
+{
+	int ret = I2C::init();
 
-	hrt_abstime _reset_timestamp{0};
-	hrt_abstime _last_config_check_timestamp{0};
-	hrt_abstime _temperature_update_timestamp{0};
-	int _failure_count{0};
+	if (ret != PX4_OK) {
+		DEVICE_DEBUG("I2C::init failed (%i)", ret);
+		return ret;
+	}
 
-	px4::atomic<uint32_t> _drdy_fifo_read_samples{0};
-	bool _data_ready_interrupt_enabled{false};
+	return Reset() ? 0 : -1;
+}
 
-	enum class STATE : uint8_t {
-		RESET,
-		WAIT_FOR_RESET,
-		CONFIGURE,
-		FIFO_READ,
-	};
-
-	STATE _state{STATE::RESET};
-
-	uint16_t _fifo_empty_interval_us{2500}; // 2500 us / 400 Hz transfer interval
-
-};
+bool BMI088::Reset()
+{
+	_state = STATE::RESET;
+	ScheduleClear();
+	ScheduleNow();
+	return true;
+}

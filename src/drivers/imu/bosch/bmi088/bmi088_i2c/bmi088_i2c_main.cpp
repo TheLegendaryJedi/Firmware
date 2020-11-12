@@ -31,6 +31,7 @@
  *
  ****************************************************************************/
 
+#include <px4_platform_common/px4_config.h>
 #include <px4_platform_common/getopt.h>
 #include <px4_platform_common/module.h>
 
@@ -38,32 +39,38 @@
 
 void BMI088::print_usage()
 {
-	PRINT_MODULE_USAGE_NAME("bmi088", "driver");
+	PRINT_MODULE_USAGE_NAME("bmi088_i2c", "driver");
 	PRINT_MODULE_USAGE_SUBCATEGORY("imu");
 	PRINT_MODULE_USAGE_COMMAND("start");
 	PRINT_MODULE_USAGE_PARAM_FLAG('A', "Accel", true);
 	PRINT_MODULE_USAGE_PARAM_FLAG('G', "Gyro", true);
-	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(false, true);
+	PRINT_MODULE_USAGE_PARAMS_I2C_SPI_DRIVER(true, false);
+	PRINT_MODULE_USAGE_PARAMS_I2C_ADDRESS(0x76);
 	PRINT_MODULE_USAGE_PARAM_INT('R', 0, 0, 35, "Rotation", true);
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 }
 
-extern "C" int bmi088_main(int argc, char *argv[])
+extern "C" int bmi088_i2c_main(int argc, char *argv[])
 {
 	int ch;
 	using ThisDriver = BMI088;
-	BusCLIArguments cli{false, true};
-	cli.type = 0;
-	cli.default_spi_frequency = 10000000;
+	BusCLIArguments cli{true, true};
+	cli.i2c_address = 0x18;
+	cli.default_i2c_frequency = 100 * 1000;
+	cli.default_spi_frequency = 10 * 1000 * 1000;
+
 
 	while ((ch = cli.getopt(argc, argv, "AGR:")) != EOF) {
+		PX4_WARN("%d",ch);
 		switch (ch) {
 		case 'A':
 			cli.type = DRV_ACC_DEVTYPE_BMI088;
+			cli.i2c_address = 0x18;
 			break;
 
 		case 'G':
 			cli.type = DRV_GYR_DEVTYPE_BMI088;
+			cli.i2c_address = 0x68;
 			break;
 
 		case 'R':
@@ -74,14 +81,20 @@ extern "C" int bmi088_main(int argc, char *argv[])
 
 	const char *verb = cli.optarg();
 
+	PX4_WARN("%s", verb);
 	if (!verb) {
+		PX4_WARN("!verb");
 		ThisDriver::print_usage();
 		return -1;
 	}
 
+	PX4_WARN("ID:%d", cli.type);
 	BusInstanceIterator iterator(MODULE_NAME, cli, cli.type);
 
+	PX4_WARN("BusInstanceIterator devid: %d", iterator.devid());
+
 	if (!strcmp(verb, "start")) {
+		PX4_WARN("start");
 		return ThisDriver::module_start(cli, iterator);
 	}
 
@@ -93,6 +106,7 @@ extern "C" int bmi088_main(int argc, char *argv[])
 		return ThisDriver::module_status(iterator);
 	}
 
+	PX4_WARN("print_usage1");
 	ThisDriver::print_usage();
 	return -1;
 }

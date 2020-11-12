@@ -369,16 +369,17 @@ bool BMI088_Gyroscope::RegisterCheck(const register_config_t &reg_cfg)
 
 uint8_t BMI088_Gyroscope::RegisterRead(Register reg)
 {
-	uint8_t cmd[2] {};
-	cmd[0] = static_cast<uint8_t>(reg) | DIR_READ;
-	transfer(cmd, cmd, sizeof(cmd));
+	uint8_t add = static_cast<uint8_t>(reg) | GYRO_I2C_ADDR_PRIMARY;
+	uint8_t cmd[2] = {add, 0};
+	transfer(&cmd[0], 1, &cmd[1], 1);
 	return cmd[1];
 }
 
 void BMI088_Gyroscope::RegisterWrite(Register reg, uint8_t value)
 {
-	uint8_t cmd[2] { (uint8_t)reg, value };
-	transfer(cmd, cmd, sizeof(cmd));
+	uint8_t add = static_cast<uint8_t>(reg) | GYRO_I2C_ADDR_PRIMARY;
+	uint8_t cmd[2] = {add, value};
+	transfer(cmd, sizeof(cmd), nullptr, 0);
 }
 
 void BMI088_Gyroscope::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits)
@@ -397,7 +398,7 @@ bool BMI088_Gyroscope::FIFORead(const hrt_abstime &timestamp_sample, uint8_t sam
 	FIFOTransferBuffer buffer{};
 	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 1, FIFO::SIZE);
 
-	if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
+	if (transfer((uint8_t *)&buffer, transfer_size, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
 		perf_count(_bad_transfer_perf);
 		return false;
 	}

@@ -46,7 +46,7 @@ px4_add_module(
 		BMI088_Gyroscope.cpp
 		BMI088_Gyroscope.hpp
 
-		bmi088_main.cpp
+		bmi088_i2c_main.cpp
 	DEPENDS
 		drivers_accelerometer
 		drivers_gyroscope

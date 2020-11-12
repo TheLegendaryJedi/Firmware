@@ -84,19 +84,6 @@ void BMI088_Accelerometer::print_status()
 
 int BMI088_Accelerometer::probe()
 {
-	/* 6.1 Serial Peripheral Interface (SPI)
-	 * ... the accelerometer part starts always in I2C mode
-	 * (regardless of the level of the PS pin) and needs to be changed to SPI
-	 *  mode actively by sending a rising edge on the CSB1 pin
-	 *  (chip select of the accelerometer), on which the accelerometer part
-	 *  switches to SPI mode and stays in this mode until the next power-up-reset.
-	 *
-	 *  To change the sensor to SPI mode in the initialization phase, the user
-	 *  could perfom a dummy SPI read operation, e.g. of register ACC_CHIP_ID
-	 *  (the obtained value will be invalid).In case of read operations,
-	 */
-	RegisterRead(Register::ACC_CHIP_ID);
-
 	const uint8_t ACC_CHIP_ID = RegisterRead(Register::ACC_CHIP_ID);
 
 	if (ACC_CHIP_ID != ID) {
@@ -406,22 +393,17 @@ bool BMI088_Accelerometer::RegisterCheck(const register_config_t &reg_cfg)
 
 uint8_t BMI088_Accelerometer::RegisterRead(Register reg)
 {
-	// 6.1.2 SPI interface of accelerometer part
-	//
-	// In case of read operations of the accelerometer part, the requested data
-	// is not sent immediately, but instead first a dummy byte is sent, and
-	// after this dummy byte the actual requested register content is transmitted.
-	uint8_t cmd[3] {};
-	cmd[0] = static_cast<uint8_t>(reg) | DIR_READ;
-	// cmd[1] dummy byte
-	transfer(cmd, cmd, sizeof(cmd));
-	return cmd[2];
+	uint8_t add = static_cast<uint8_t>(reg) | ACC_I2C_ADDR_PRIMARY;
+	uint8_t cmd[2] = {add, 0};
+	transfer(&cmd[0], 1, &cmd[1], 1);
+	return cmd[1];
 }
 
 void BMI088_Accelerometer::RegisterWrite(Register reg, uint8_t value)
 {
-	uint8_t cmd[2] { (uint8_t)reg, value };
-	transfer(cmd, cmd, sizeof(cmd));
+	uint8_t add = static_cast<uint8_t>(reg) | ACC_I2C_ADDR_PRIMARY;
+	uint8_t cmd[2] = { add, value};
+	transfer(cmd, sizeof(cmd), nullptr, 0);
 }
 
 void BMI088_Accelerometer::RegisterSetAndClearBits(Register reg, uint8_t setbits, uint8_t clearbits)
@@ -439,10 +421,10 @@ uint16_t BMI088_Accelerometer::FIFOReadCount()
 {
 	// FIFO length registers FIFO_LENGTH_1 and FIFO_LENGTH_0 contain the 14 bit FIFO byte
 	uint8_t fifo_len_buf[4] {};
-	fifo_len_buf[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0) | DIR_READ;
+	fifo_len_buf[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0) | ACC_I2C_ADDR_PRIMARY;
 	// fifo_len_buf[1] dummy byte
 
-	if (transfer(&fifo_len_buf[0], &fifo_len_buf[0], sizeof(fifo_len_buf)) != PX4_OK) {
+	if (transfer(&fifo_len_buf[0], 2, &fifo_len_buf[2], 2) == PX4_OK) {
 		perf_count(_bad_transfer_perf);
 		return 0;
 	}
@@ -458,7 +440,7 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 	FIFOTransferBuffer buffer{};
 	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 4, FIFO::SIZE);
 
-	if (transfer((uint8_t *)&buffer, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
+	if (transfer((uint8_t *)&buffer, transfer_size,(uint8_t *)&buffer, transfer_size) != PX4_OK) {
 		perf_count(_bad_transfer_perf);
 		return false;
 	}
@@ -567,10 +549,10 @@ void BMI088_Accelerometer::UpdateTemperature()
 {
 	// stored in an 11-bit value in 2’s complement format
 	uint8_t temperature_buf[4] {};
-	temperature_buf[0] = static_cast<uint8_t>(Register::TEMP_MSB) | DIR_READ;
+	temperature_buf[0] = static_cast<uint8_t>(Register::TEMP_MSB) | ACC_I2C_ADDR_PRIMARY;
 	// temperature_buf[1] dummy byte
 
-	if (transfer(&temperature_buf[0], &temperature_buf[0], sizeof(temperature_buf)) != PX4_OK) {
+	if (transfer(&temperature_buf[0], 1, &temperature_buf[0], sizeof(temperature_buf)) != PX4_OK) {
 		perf_count(_bad_transfer_perf);
 		return;
 	}

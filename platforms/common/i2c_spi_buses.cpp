@@ -502,7 +502,7 @@ int I2CSPIDriverBase::module_start(const BusCLIArguments &cli, BusInstanceIterat
 		I2CSPIDriverBase *instance = initializer_data.instance;
 
 		if (!instance) {
-			PX4_DEBUG("instantiate failed (no device on bus %i (devid 0x%x)?)", iterator.bus(), iterator.devid());
+			PX4_WARN("instantiate failed (no device on bus %i (devid 0x%x)?)", iterator.bus(), iterator.devid());
 			continue;
 		}
 
@@ -516,7 +516,7 @@ int I2CSPIDriverBase::module_start(const BusCLIArguments &cli, BusInstanceIterat
 		// print some info that we are running
 		switch (iterator.busType()) {
 		case BOARD_I2C_BUS:
-			PX4_INFO_RAW("%s #%i on I2C bus %d%s\n", instance->ItemName(), runtime_instance, iterator.bus(),
+			PX4_WARN("%s #%i on I2C bus %d%s\n", instance->ItemName(), runtime_instance, iterator.bus(),
 				     iterator.external() ? " (external)" : "");
 
 			break;
@@ -535,6 +535,7 @@ int I2CSPIDriverBase::module_start(const BusCLIArguments &cli, BusInstanceIterat
 			break;
 
 		case BOARD_INVALID_BUS:
+			PX4_WARN("Invalid bus!");
 			break;
 		}
 	}
