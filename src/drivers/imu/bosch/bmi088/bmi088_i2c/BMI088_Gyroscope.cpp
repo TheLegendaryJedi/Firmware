@@ -369,7 +369,7 @@ bool BMI088_Gyroscope::RegisterCheck(const register_config_t &reg_cfg)
 
 uint8_t BMI088_Gyroscope::RegisterRead(Register reg)
 {
-	uint8_t add = static_cast<uint8_t>(reg) | GYRO_I2C_ADDR_PRIMARY;
+	uint8_t add = static_cast<uint8_t>(reg);
 	uint8_t cmd[2] = {add, 0};
 	transfer(&cmd[0], 1, &cmd[1], 1);
 	return cmd[1];
@@ -377,7 +377,7 @@ uint8_t BMI088_Gyroscope::RegisterRead(Register reg)
 
 void BMI088_Gyroscope::RegisterWrite(Register reg, uint8_t value)
 {
-	uint8_t add = static_cast<uint8_t>(reg) | GYRO_I2C_ADDR_PRIMARY;
+	uint8_t add = static_cast<uint8_t>(reg);
 	uint8_t cmd[2] = {add, value};
 	transfer(cmd, sizeof(cmd), nullptr, 0);
 }

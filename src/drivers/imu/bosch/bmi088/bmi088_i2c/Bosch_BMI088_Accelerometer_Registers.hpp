@@ -84,6 +84,9 @@ enum class Register : uint8_t {
 	ACC_PWR_CONF       = 0x7C,
 	ACC_PWR_CTRL       = 0x7D,
 	ACC_SOFTRESET      = 0x7E,
+	ACC_I2C_ADDR_PRIMARY_REG = 0x18,
+	ACC_I2C_ADDR_SECONDARY_REG = 0x19,
+	BMI088_ACCEL_X_LSB_REG = 0x12
 };
 
 // ACC_CONF

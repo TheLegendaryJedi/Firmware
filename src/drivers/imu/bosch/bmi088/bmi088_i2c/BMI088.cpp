@@ -43,7 +43,7 @@ I2CSPIDriverBase *BMI088::instantiate(const BusCLIArguments &cli, const BusInsta
 
 	if (cli.type == DRV_ACC_DEVTYPE_BMI088) {
 		instance = new Bosch::BMI088::Accelerometer::BMI088_Accelerometer(iterator.configuredBusOption(), iterator.bus(),
-				cli.i2c_address, cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
+				cli.i2c_address, cli.rotation, cli.bus_frequency, cli.spi_mode, 0x1D);
 
 	} else if (cli.type == DRV_GYR_DEVTYPE_BMI088) {
 		instance = new Bosch::BMI088::Gyroscope::BMI088_Gyroscope(iterator.configuredBusOption(), iterator.bus(),

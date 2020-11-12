@@ -61,7 +61,6 @@ extern "C" int bmi088_i2c_main(int argc, char *argv[])
 
 
 	while ((ch = cli.getopt(argc, argv, "AGR:")) != EOF) {
-		PX4_WARN("%d",ch);
 		switch (ch) {
 		case 'A':
 			cli.type = DRV_ACC_DEVTYPE_BMI088;
@@ -80,18 +79,15 @@ extern "C" int bmi088_i2c_main(int argc, char *argv[])
 	}
 
 	const char *verb = cli.optarg();
-
-	PX4_WARN("%s", verb);
 	if (!verb) {
-		PX4_WARN("!verb");
 		ThisDriver::print_usage();
 		return -1;
 	}
 
-	PX4_WARN("ID:%d", cli.type);
+	PX4_WARN("ID:0x%02x", cli.type);
 	BusInstanceIterator iterator(MODULE_NAME, cli, cli.type);
 
-	PX4_WARN("BusInstanceIterator devid: %d", iterator.devid());
+	PX4_WARN("BusInstanceIterator devid: 0x%02x", iterator.devid());
 
 	if (!strcmp(verb, "start")) {
 		PX4_WARN("start");
