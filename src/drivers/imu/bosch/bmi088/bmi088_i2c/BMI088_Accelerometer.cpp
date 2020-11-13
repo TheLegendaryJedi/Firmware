@@ -220,11 +220,7 @@ void BMI088_Accelerometer::RunImpl()
 
 				} else {
 					samples = fifo_byte_counter / sizeof(FIFO::DATA);
-
-					PX4_WARN("samples %d", samples);
 					if (samples > FIFO_MAX_SAMPLES) {
-
-						PX4_WARN("samples > FIFO_MAX_SAMPLES");
 						// not technically an overflow, but more samples than we expected or can publish
 						FIFOReset();
 						perf_count(_fifo_overflow_perf);
@@ -236,9 +232,8 @@ void BMI088_Accelerometer::RunImpl()
 			bool success = false;
 
 			if (samples >= 1) {
-				PX4_WARN("samples>1");
 				if (FIFORead(now, samples)) {
-					PX4_WARN("FIFORead success = true");
+					//PX4_WARN("FIFORead success = true");
 					success = true;
 
 					if (_failure_count > 0) {
@@ -329,6 +324,7 @@ void BMI088_Accelerometer::ConfigureSampleRate(int sample_rate)
 	// recompute FIFO empty interval (us) with actual sample limit
 	_fifo_empty_interval_us = _fifo_samples * (1e6f / RATE);
 
+	PX4_WARN("_fifo_samples %d", _fifo_samples);
 	ConfigureFIFOWatermark(_fifo_samples);
 }
 
@@ -441,7 +437,8 @@ uint16_t BMI088_Accelerometer::FIFOReadCount()
 {
 	// FIFO length registers FIFO_LENGTH_1 and FIFO_LENGTH_0 contain the 14 bit FIFO byte
 	uint8_t fifo_len_buf[4] {};
-	fifo_len_buf[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0) | DIR_READ;
+	//fifo_len_buf[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0) | DIR_READ;
+	fifo_len_buf[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0);
 	// fifo_len_buf[1] dummy byte
 
 	if (transfer(&fifo_len_buf[0], 1, &fifo_len_buf[0], sizeof(fifo_len_buf)) != PX4_OK) {
@@ -462,7 +459,7 @@ uint16_t BMI088_Accelerometer::FIFOReadCount()
 		PX4_WARN("combine(FIFO_LENGTH_1, FIFO_LENGTH_0) %d", combine(FIFO_LENGTH_1, FIFO_LENGTH_0));
 	}*/
 
-
+	//PX4_WARN("combine(FIFO_LENGTH_1, FIFO_LENGTH_0) %d", combine(FIFO_LENGTH_1, FIFO_LENGTH_0));
 	return combine(FIFO_LENGTH_1, FIFO_LENGTH_0);
 }
 
@@ -470,16 +467,40 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 {
 	FIFOTransferBuffer buffer{};
 	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 4, FIFO::SIZE);
+	//const size_t transfer_size_aux = FIFO_MAX_SAMPLES + 32;
+	const size_t transfer_size_aux = FIFOReadCount();
 	PX4_WARN("transfer_size %d", transfer_size);
+	PX4_WARN("FIFOReadCount %d", FIFOReadCount());
 
-	if (transfer((uint8_t *)&buffer, 1, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
-		PX4_WARN("BAD TRANFER");
+	if (transfer((uint8_t *)&buffer, 1, (uint8_t *)&buffer, transfer_size_aux) != PX4_OK) {
+		//PX4_WARN("BAD TRANFER");
+
+		// uint8_t *data_buffer_aux = (uint8_t *)&buffer.f[0];
+
+		// FIFO::DATA *data_sample = (FIFO::DATA *)&data_buffer_aux[0];
+
+		// const int16_t accel_x_aux = combine(data_sample->ACC_X_MSB, data_sample->ACC_X_LSB);
+		// const int16_t accel_y_aux = combine(data_sample->ACC_Y_MSB, data_sample->ACC_Y_LSB);
+		// const int16_t accel_z_aux = combine(data_sample->ACC_Z_MSB, data_sample->ACC_Z_LSB);
+
+
+
+		// PX4_WARN("buffer cmd:0x%02x", buffer.cmd);
+		// PX4_WARN("buffer dummy:0x%02x", buffer.dummy);
+		// PX4_WARN("buffer FIFO_LENGTH_0:0x%02x", buffer.FIFO_LENGTH_0);
+		// PX4_WARN("buffer FIFO_LENGTH_1:0x%02x", buffer.FIFO_LENGTH_1);
+		// PX4_WARN("buffer data_buffer:0x%02x", combine(data_sample->ACC_X_MSB, data_sample->ACC_X_LSB));
+
+		// PX4_WARN("buffer accel_x_aux:%d", accel_x_aux);
+		// PX4_WARN("buffer accel_y_aux:%d", accel_y_aux);
+		// PX4_WARN("buffer accel_z_aux:%d", accel_z_aux);
+
 		perf_count(_bad_transfer_perf);
 		return false;
 	}
 
 	const size_t fifo_byte_counter = combine(buffer.FIFO_LENGTH_1 & 0x3F, buffer.FIFO_LENGTH_0);
-	PX4_WARN("fifo_byte_counter %d", fifo_byte_counter);
+	//PX4_WARN("fifo_byte_counter %d", fifo_byte_counter);
 
 	// An empty FIFO corresponds to 0x8000
 	if (fifo_byte_counter == 0x8000) {
@@ -502,8 +523,12 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 	uint8_t *data_buffer = (uint8_t *)&buffer.f[0];
 	unsigned fifo_buffer_index = 0; // start of buffer
 
-	PX4_WARN("data_buffer %d", data_buffer[0]);
+	//PX4_WARN("data_buffer %d", data_buffer[0]);
+	//PX4_WARN("fifo_byte_counter %d", fifo_byte_counter);
+	//PX4_WARN("transfer_size - 4 %d", transfer_size - 4);
+
 	while (fifo_buffer_index < math::min(fifo_byte_counter, transfer_size - 4)) {
+		//PX4_WARN("fifo_buffer_index < math::min(fifo_byte_counter, transfer_size - 4)");
 		// look for header signature (first 6 bits) followed by two bits indicating the status of INT1 and INT2
 		switch (data_buffer[fifo_buffer_index] & 0xFC) {
 		case FIFO::header::sensor_data_frame: {
@@ -515,9 +540,9 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 				const int16_t accel_y = combine(fifo_sample->ACC_Y_MSB, fifo_sample->ACC_Y_LSB);
 				const int16_t accel_z = combine(fifo_sample->ACC_Z_MSB, fifo_sample->ACC_Z_LSB);
 
-				PX4_WARN("accel_x %d", accel_x);
-				PX4_WARN("accel_y %d", accel_y);
-				PX4_WARN("accel_z %d", accel_z);
+				// PX4_WARN("accel_x %d", accel_x);
+				// PX4_WARN("accel_y %d", accel_y);
+				// PX4_WARN("accel_z %d", accel_z);
 
 				// sensor's frame is +x forward, +y left, +z up
 				//  flip y & z to publish right handed with z down (x forward, y right, z down)
