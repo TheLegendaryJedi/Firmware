@@ -130,6 +130,10 @@ void BMI088_Gyroscope::RunImpl()
 
 		break;
 
+	case STATE::SELFTEST:
+		_state = STATE::RESET;
+		break;
+
 	case STATE::CONFIGURE:
 		if (Configure()) {
 			// if configure succeeded then start reading from FIFO

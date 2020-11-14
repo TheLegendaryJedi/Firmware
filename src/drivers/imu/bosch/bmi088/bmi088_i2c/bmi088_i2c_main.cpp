@@ -83,14 +83,9 @@ extern "C" int bmi088_i2c_main(int argc, char *argv[])
 		ThisDriver::print_usage();
 		return -1;
 	}
-
-	PX4_WARN("ID:0x%02x", cli.type);
 	BusInstanceIterator iterator(MODULE_NAME, cli, cli.type);
 
-	PX4_WARN("BusInstanceIterator devid: 0x%02x", iterator.devid());
-
 	if (!strcmp(verb, "start")) {
-		PX4_WARN("start");
 		return ThisDriver::module_start(cli, iterator);
 	}
 

@@ -85,7 +85,7 @@ int BMI088::init()
 
 bool BMI088::Reset()
 {
-	_state = STATE::RESET;
+	_state = STATE::SELFTEST;
 	ScheduleClear();
 	ScheduleNow();
 	return true;

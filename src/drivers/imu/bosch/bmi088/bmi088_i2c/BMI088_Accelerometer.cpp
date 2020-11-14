@@ -48,7 +48,8 @@ BMI088_Accelerometer::BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, 
 	if (drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME"_accel: DRDY missed");
 	}
-	ConfigureSampleRate(400);
+	ConfigureSampleRate(800);
+
 }
 
 BMI088_Accelerometer::~BMI088_Accelerometer()
@@ -104,8 +105,8 @@ int BMI088_Accelerometer::probe()
 		DEVICE_DEBUG("unexpected ACC_CHIP_ID 0x%02x", ACC_CHIP_ID);
 		return PX4_ERROR;
 	}
+	PX4_WARN("Probe success, ACC_CHIP_ID: 0x%02x", ACC_CHIP_ID);
 
-	SelfTest();
 	return PX4_OK;
 }
 
@@ -114,6 +115,13 @@ void BMI088_Accelerometer::RunImpl()
 	const hrt_abstime now = hrt_absolute_time();
 
 	switch (_state) {
+	case STATE::SELFTEST:
+		PX4_WARN("Selftest state");
+		SelfTest();
+		_state = STATE::RESET;
+		ScheduleDelayed(10_ms);
+		break;
+
 	case STATE::RESET:
 		// ACC_SOFTRESET: Writing a value of 0xB6 to this register resets the sensor
 		RegisterWrite(Register::ACC_SOFTRESET, 0xB6);
@@ -308,7 +316,7 @@ void BMI088_Accelerometer::ConfigureAccel()
 void BMI088_Accelerometer::ConfigureSampleRate(int sample_rate)
 {
 	if (sample_rate == 0) {
-		sample_rate = 400; // default to 800 Hz
+		sample_rate = 800; // default to 800 Hz
 	}
 
 	// round down to nearest FIFO sample dt * SAMPLES_PER_TRANSFER
@@ -672,16 +680,23 @@ void BMI088_Accelerometer::UpdateTemperature()
 }
 
 bool BMI088_Accelerometer::SelfTest() {
-	RegisterWrite(Register::ACC_SOFTRESET, 0x3C);
-	sleep(0.1);
+	PX4_WARN("Running self-test with datasheet recomended steps(page 17)");
+
+	// Reset
+	PX4_WARN("Reseting the sensor");
+	RegisterWrite(Register::ACC_SOFTRESET, 0xB6);
+	usleep(100000);
+	const uint8_t ACC_CHIP_ID = RegisterRead(Register::ACC_CHIP_ID);
+	PX4_WARN("ACC_CHIP_ID: 0x%02x", ACC_CHIP_ID);
+	usleep(3000);
 	RegisterWrite(Register::ACC_RANGE, 0x03);
-	sleep(0.01);
+	usleep(3000);
 	RegisterWrite(Register::ACC_CONF, 0xA7);
-	sleep(0.01);
+	usleep(3000);
 
 	// Positive sel-test polarity
 	RegisterWrite(Register::ACC_SELF_TEST, 0x0D);
-	sleep(0.1);
+	usleep(60000);
 	float *accel_mss = ReadAccelData();
 	PX4_WARN("Positive value");
 	PX4_WARN("X %f", (double)accel_mss[0]);
@@ -690,7 +705,7 @@ bool BMI088_Accelerometer::SelfTest() {
 
 	// Negative sel-test polarity
 	RegisterWrite(Register::ACC_SELF_TEST, 0x09);
-	sleep(0.1);
+	usleep(60000);
 
 	float *accel_mss2 = ReadAccelData();
 	PX4_WARN("Negative value");
@@ -722,11 +737,12 @@ bool BMI088_Accelerometer::SelfTest() {
 
 	// Disable self-test
 	RegisterWrite(Register::ACC_SELF_TEST, 0x00);
-	sleep(0.1);
+	usleep(60000);
 
-	// Soft reset
-	RegisterWrite(Register::ACC_SOFTRESET, 0x3C);
-	sleep(0.1);
+	// Reset
+	//PX4_WARN("Reseting the sensor again");
+	//RegisterWrite(Register::ACC_SOFTRESET, 0xB6);
+	//usleep(100000);
 	return true;
 }
 
@@ -739,15 +755,15 @@ float * BMI088_Accelerometer::ReadAccelData()
 
 	transfer(&cmd[0], 1, (uint8_t*)&buffer, 6);
 
-	accel[0] = buffer[1] * 256 + buffer[0];
-	accel[1] = buffer[3] * 256 + buffer[2];
-	accel[2] = buffer[5] * 256 + buffer[4];
+	accel[0] = (buffer[1] << 8) | buffer[0];
+	accel[1] = (buffer[3] << 8) | buffer[2];
+	accel[2] = (buffer[5] << 8) | buffer[4];
 
     	float *accel_mss = new float[3];
 
-	accel_mss[0] = (float) accel[0] / 32768.0f * 1000.0f * powf(2, 24.0f+1) * 1.50f;
-	accel_mss[1] = (float) accel[1] / 32768.0f * 1000.0f * powf(2, 24.0f+1) * 1.50f;
-	accel_mss[2] = (float) accel[2] / 32768.0f * 1000.0f * powf(2, 24.0f+1) * 1.50f;
+	accel_mss[0] = (float) accel[0] / 32768.0f * 1000.0f * powf(2.0f, 24.0f+1.0f) * 1.50f;
+	accel_mss[1] = (float) accel[1] / 32768.0f * 1000.0f * powf(2.0f, 24.0f+1.0f) * 1.50f;
+	accel_mss[2] = (float) accel[2] / 32768.0f * 1000.0f * powf(2.0f, 24.0f+1.0f) * 1.50f;
 
 	return accel_mss;
 }

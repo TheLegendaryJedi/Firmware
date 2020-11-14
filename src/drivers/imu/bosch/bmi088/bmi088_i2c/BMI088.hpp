@@ -72,13 +72,14 @@ protected:
 	bool _data_ready_interrupt_enabled{false};
 
 	enum class STATE : uint8_t {
+		SELFTEST,
 		RESET,
 		WAIT_FOR_RESET,
 		CONFIGURE,
 		FIFO_READ,
 	};
 
-	STATE _state{STATE::RESET};
+	STATE _state{STATE::SELFTEST};
 
 	uint16_t _fifo_empty_interval_us{2500}; // 2500 us / 400 Hz transfer interval
 
