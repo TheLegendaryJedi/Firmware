@@ -57,7 +57,7 @@ extern "C" int bmi088_i2c_main(int argc, char *argv[])
 	BusCLIArguments cli{true, true};
 	cli.i2c_address = 0x18;
 	cli.default_i2c_frequency = 100 * 1000;
-	cli.default_spi_frequency = 10 * 1000 * 1000;
+	cli.default_spi_frequency = 100 * 1000;
 
 
 	while ((ch = cli.getopt(argc, argv, "AGR:")) != EOF) {

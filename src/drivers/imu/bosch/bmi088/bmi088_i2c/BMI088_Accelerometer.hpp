@@ -101,6 +101,8 @@ private:
 	void FIFOReset();
 
 	void UpdateTemperature();
+	bool SelfTest();
+	float* ReadAccelData();
 
 	PX4Accelerometer _px4_accel;
 

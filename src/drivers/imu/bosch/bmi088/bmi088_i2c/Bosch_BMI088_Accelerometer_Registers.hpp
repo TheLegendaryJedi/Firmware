@@ -73,6 +73,7 @@ enum class Register : uint8_t {
 	ACC_CONF           = 0x40,
 	ACC_RANGE          = 0x41,
 
+	FIFO_DOWN_SAMPLING = 0x46,
 	FIFO_WTM_0         = 0x46,
 	FIFO_WTM_1         = 0x47,
 	FIFO_CONFIG_0      = 0x48,
@@ -85,7 +86,8 @@ enum class Register : uint8_t {
 	ACC_PWR_CONF       = 0x7C,
 	ACC_PWR_CTRL       = 0x7D,
 	ACC_SOFTRESET      = 0x7E,
-	ACC_I2C_ADDR_PRIMARY_REG = 0x18,
+	ACC_SELF_TEST      = 0x6D,
+	ACC_I2C_ADDR_PRIMARY_REG = 0x6D,
 	ACC_I2C_ADDR_SECONDARY_REG = 0x19,
 	BMI088_ACCEL_X_LSB_REG = 0x12
 };
