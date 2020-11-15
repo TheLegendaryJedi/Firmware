@@ -73,7 +73,7 @@ enum class Register : uint8_t {
 	ACC_CONF           = 0x40,
 	ACC_RANGE          = 0x41,
 
-	FIFO_DOWN_SAMPLING = 0x46,
+	FIFO_DOWN_SAMPLING = 0x45,
 	FIFO_WTM_0         = 0x46,
 	FIFO_WTM_1         = 0x47,
 	FIFO_CONFIG_0      = 0x48,
@@ -179,6 +179,16 @@ enum header : uint8_t {
 	FIFO_input_config_frame = 0b01001000,
 	sample_drop_frame       = 0b01010000,
 };
+struct bmi08x_sensor_data
+{
+    /*! X-axis sensor data */
+    int16_t x;
 
+    /*! Y-axis sensor data */
+    int16_t y;
+
+    /*! Z-axis sensor data */
+    int16_t z;
+};
 } // namespace FIFO
 } // namespace Bosch::BMI088::Accelerometer

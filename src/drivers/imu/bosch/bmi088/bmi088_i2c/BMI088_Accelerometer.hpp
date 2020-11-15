@@ -101,8 +101,11 @@ private:
 	void FIFOReset();
 
 	void UpdateTemperature();
+	void UnpackSensorData(struct FIFO::bmi08x_sensor_data *sens_data, uint8_t *buffer);
 	bool SelfTest();
 	float* ReadAccelData();
+	float* ReadAccelDataFIFO();
+	float* SensorDataTomg(float* data);
 
 	PX4Accelerometer _px4_accel;
 

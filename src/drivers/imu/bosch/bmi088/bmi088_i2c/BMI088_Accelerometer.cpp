@@ -107,6 +107,7 @@ int BMI088_Accelerometer::probe()
 	}
 	PX4_WARN("Probe success, ACC_CHIP_ID: 0x%02x", ACC_CHIP_ID);
 
+	SelfTest();
 	return PX4_OK;
 }
 
@@ -117,7 +118,7 @@ void BMI088_Accelerometer::RunImpl()
 	switch (_state) {
 	case STATE::SELFTEST:
 		PX4_WARN("Selftest state");
-		SelfTest();
+		//SelfTest();
 		_state = STATE::RESET;
 		ScheduleDelayed(10_ms);
 		break;
@@ -681,22 +682,24 @@ void BMI088_Accelerometer::UpdateTemperature()
 
 bool BMI088_Accelerometer::SelfTest() {
 	PX4_WARN("Running self-test with datasheet recomended steps(page 17)");
-
 	// Reset
 	PX4_WARN("Reseting the sensor");
 	RegisterWrite(Register::ACC_SOFTRESET, 0xB6);
 	usleep(100000);
 	const uint8_t ACC_CHIP_ID = RegisterRead(Register::ACC_CHIP_ID);
 	PX4_WARN("ACC_CHIP_ID: 0x%02x", ACC_CHIP_ID);
-	usleep(3000);
+	usleep(30000);
+	/*enable accel sensor*/
+	RegisterWrite(Register::ACC_PWR_CONF, 0);
+	usleep(2000000);
 	RegisterWrite(Register::ACC_RANGE, 0x03);
-	usleep(3000);
+	usleep(100000);
 	RegisterWrite(Register::ACC_CONF, 0xA7);
-	usleep(3000);
+	usleep(100000);
 
 	// Positive sel-test polarity
 	RegisterWrite(Register::ACC_SELF_TEST, 0x0D);
-	usleep(60000);
+	usleep(100000);
 	float *accel_mss = ReadAccelData();
 	PX4_WARN("Positive value");
 	PX4_WARN("X %f", (double)accel_mss[0]);
@@ -766,5 +769,91 @@ float * BMI088_Accelerometer::ReadAccelData()
 	accel_mss[2] = (float) accel[2] / 32768.0f * 1000.0f * powf(2.0f, 24.0f+1.0f) * 1.50f;
 
 	return accel_mss;
+}
+
+float * BMI088_Accelerometer::ReadAccelDataFIFO()
+{
+    	float *accel_mg = new float[3];
+	struct FIFO::bmi08x_sensor_data bmi08x_accel;
+	uint8_t buffer[2000] = {0};
+
+	PX4_WARN("FIFO mode is stop-at-full");
+	 /* Desired FIFO mode is stop-at-full: set bit #0 to 1 in 0x48. Bit #1 must always be one! */
+	buffer[0] = 0x01 | 0x02;
+	RegisterWrite(Register::FIFO_CONFIG_0, buffer[0]);
+
+	PX4_WARN("Downsampling factor 2**4 = 16");
+	/* Downsampling factor 2**4 = 16: write 4 into bit #4-6 of reg. 0x45. Bit #7 must always be one! */
+	buffer[0] = (4 << 4) | 0x80;
+	RegisterWrite(Register::FIFO_DOWN_SAMPLING, buffer[0]);
+
+	/* Set water mark to 42 bytes (aka 6 frames, each 7 bytes: 1 byte header + 6 bytes accel data) */
+	uint16_t wml = 42;
+ 	buffer[0] = (uint8_t) wml & 0xff;
+	buffer[1] = (uint8_t) (wml >> 8) & 0xff;
+	uint8_t add = static_cast<uint8_t>(Register::FIFO_WTM_0);
+	uint8_t cmd[3] = { add, buffer[0], buffer[1]};
+	transfer(cmd, sizeof(cmd), nullptr, 0);
+
+ 	/* Enable the actual FIFO functionality: write 0x50 to 0x49. Bit #4 must always be one! */
+	buffer[0] = 0x10 | 0x40;
+	RegisterWrite(Register::FIFO_CONFIG_1, buffer[0]);
+	usleep(50000);
+
+	int fifo_fill_level = 0;
+	while(fifo_fill_level < wml)
+	{
+ 		buffer[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0);
+		transfer(&buffer[0], 1, &buffer[1], 2);
+		fifo_fill_level = buffer[1] + 256 * buffer[2];
+	}
+
+	buffer[0] = static_cast<uint8_t>(Register::FIFO_DATA);
+	transfer(&buffer[0], 1, &buffer[1], fifo_fill_level);
+	/* This is a super-simple FIFO parsing loop, hoping it will only find valid accel data packets */
+	for(int i = 1; i < fifo_fill_level;)
+	{
+		/* Header of acceleration sensor data frame: 100001xxb, where x is INT1/INT2 tag, ignored here */
+		if(buffer[i] == (0x84 & 0x8c))
+		{
+			UnpackSensorData(&bmi08x_accel, &buffer[i + 1]);
+			PX4_WARN("Frame: %03d ax:%f ay:%f az:%f\n", i/6, (double)bmi08x_accel.x, (double)bmi08x_accel.y, (double)bmi08x_accel.z);
+			PX4_WARN("Frame in mg");
+			accel_mg[0] = bmi08x_accel.x;
+			accel_mg[1] = bmi08x_accel.y;
+			accel_mg[2] = bmi08x_accel.z;
+			float* data_in_mg = SensorDataTomg(accel_mg);
+			PX4_WARN("Frame: %03d ax:%f ay:%f az:%f\n", i/6, (double)data_in_mg[0], (double)data_in_mg[1], (double)data_in_mg[2]);
+			i += 7;
+		}
+		else
+			i++;
+	}
+	return accel_mg;
+}
+void BMI088_Accelerometer::UnpackSensorData(struct FIFO::bmi08x_sensor_data *sens_data, uint8_t *buffer)
+{
+	uint16_t data_lsb;
+	uint16_t data_msb;
+	uint16_t start_idx = 0;
+	/* Gyro raw x data */
+	data_lsb = buffer[start_idx++];
+	data_msb = buffer[start_idx++];
+	sens_data->x = (int16_t)((data_msb << 8) | data_lsb);
+	/* Gyro raw y data */
+	data_lsb = buffer[start_idx++];
+	data_msb = buffer[start_idx++];
+	sens_data->y = (int16_t)((data_msb << 8) | data_lsb);
+	/* Gyro raw z data */
+	data_lsb = buffer[start_idx++];
+	data_msb = buffer[start_idx++];
+	sens_data->z = (int16_t)((data_msb << 8) | data_lsb);
+}
+float* BMI088_Accelerometer::SensorDataTomg(float* data)
+{
+	data[0] = (float) data[0] / 32768.0f * 1000.0f * powf(2.0f, 24.0f+1.0f) * 1.50f;
+	data[1] = (float) data[1] / 32768.0f * 1000.0f * powf(2.0f, 24.0f+1.0f) * 1.50f;
+	data[2] = (float) data[2] / 32768.0f * 1000.0f * powf(2.0f, 24.0f+1.0f) * 1.50f;
+	return data;
 }
 } // namespace Bosch::BMI088::Accelerometer
