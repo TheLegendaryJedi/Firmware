@@ -50,7 +50,6 @@ BMI088_Accelerometer::BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, 
 	}
 
 	ConfigureSampleRate(800);
-
 }
 
 BMI088_Accelerometer::~BMI088_Accelerometer()
@@ -108,7 +107,6 @@ int BMI088_Accelerometer::probe()
 	}
 	PX4_WARN("Probe success, ACC_CHIP_ID: 0x%02x", ACC_CHIP_ID);
 
-	SelfTest();
 	return PX4_OK;
 }
 
@@ -118,8 +116,8 @@ void BMI088_Accelerometer::RunImpl()
 
 	switch (_state) {
 	case STATE::SELFTEST:
-		PX4_WARN("Selftest state");
-		//SelfTest();
+		//PX4_WARN("Selftest state");
+		SelfTest();
 		_state = STATE::RESET;
 		ScheduleDelayed(10_ms);
 		break;

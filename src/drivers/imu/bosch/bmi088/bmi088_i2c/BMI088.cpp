@@ -43,7 +43,7 @@ I2CSPIDriverBase *BMI088::instantiate(const BusCLIArguments &cli, const BusInsta
 
 	if (cli.type == DRV_ACC_DEVTYPE_BMI088) {
 		instance = new Bosch::BMI088::Accelerometer::BMI088_Accelerometer(iterator.configuredBusOption(), iterator.bus(),
-				cli.i2c_address, cli.rotation, cli.bus_frequency, cli.spi_mode, 0x1D);
+				cli.i2c_address, cli.rotation, cli.bus_frequency, cli.spi_mode, iterator.DRDYGPIO());
 
 	} else if (cli.type == DRV_GYR_DEVTYPE_BMI088) {
 		instance = new Bosch::BMI088::Gyroscope::BMI088_Gyroscope(iterator.configuredBusOption(), iterator.bus(),
@@ -79,13 +79,15 @@ int BMI088::init()
 		DEVICE_DEBUG("I2C::init failed (%i)", ret);
 		return ret;
 	}
+	int res = Reset() ? 0 : -1;
+	_state = STATE::SELFTEST;
 
-	return Reset() ? 0 : -1;
+	return res;
 }
 
 bool BMI088::Reset()
 {
-	_state = STATE::SELFTEST;
+	_state = STATE::RESET;
 	ScheduleClear();
 	ScheduleNow();
 	return true;
