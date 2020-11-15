@@ -48,6 +48,7 @@ BMI088_Accelerometer::BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, 
 	if (drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME"_accel: DRDY missed");
 	}
+
 	ConfigureSampleRate(800);
 
 }
@@ -90,11 +91,11 @@ uint8_t BMI088_Accelerometer::RegisterRead(Register reg)
 	return cmd[1];
 }
 
-void BMI088_Accelerometer::RegisterWrite(Register reg, uint8_t value)
+uint8_t BMI088_Accelerometer::RegisterWrite(Register reg, uint8_t value)
 {
 	uint8_t add = static_cast<uint8_t>(reg);
 	uint8_t cmd[2] = { add, value};
-	transfer(cmd, sizeof(cmd), nullptr, 0);
+	return transfer(cmd, sizeof(cmd), nullptr, 0);
 }
 
 int BMI088_Accelerometer::probe()
@@ -684,21 +685,33 @@ bool BMI088_Accelerometer::SelfTest() {
 	PX4_WARN("Running self-test with datasheet recomended steps(page 17)");
 	// Reset
 	PX4_WARN("Reseting the sensor");
-	RegisterWrite(Register::ACC_SOFTRESET, 0xB6);
+	if(RegisterWrite(Register::ACC_SOFTRESET, 0xB6) == PX4_OK){
+		PX4_WARN("Reset success");
+	}
 	usleep(100000);
 	const uint8_t ACC_CHIP_ID = RegisterRead(Register::ACC_CHIP_ID);
 	PX4_WARN("ACC_CHIP_ID: 0x%02x", ACC_CHIP_ID);
 	usleep(30000);
-	/*enable accel sensor*/
-	RegisterWrite(Register::ACC_PWR_CONF, 0);
+
+	if(RegisterWrite(Register::ACC_PWR_CONF, 0) == PX4_OK){
+		PX4_WARN("Start sensor success");
+	}
 	usleep(2000000);
-	RegisterWrite(Register::ACC_RANGE, 0x03);
+
+	if(RegisterWrite(Register::ACC_RANGE, 0x03) == PX4_OK){
+		PX4_WARN("Range set success");
+	}
 	usleep(100000);
-	RegisterWrite(Register::ACC_CONF, 0xA7);
+
+	if(RegisterWrite(Register::ACC_CONF, 0xA7) == PX4_OK){
+		PX4_WARN("Conf set success");
+	}
 	usleep(100000);
 
 	// Positive sel-test polarity
-	RegisterWrite(Register::ACC_SELF_TEST, 0x0D);
+	if(RegisterWrite(Register::ACC_SELF_TEST, 0x0D) == PX4_OK){
+		PX4_WARN("Self-test positive mode set success");
+	}
 	usleep(100000);
 	float *accel_mss = ReadAccelData();
 	PX4_WARN("Positive value");
@@ -707,7 +720,9 @@ bool BMI088_Accelerometer::SelfTest() {
 	PX4_WARN("Z %f", (double)accel_mss[2]);
 
 	// Negative sel-test polarity
-	RegisterWrite(Register::ACC_SELF_TEST, 0x09);
+	if(RegisterWrite(Register::ACC_SELF_TEST, 0x09) == PX4_OK){
+		PX4_WARN("Self-test negative mode set success");
+	}
 	usleep(60000);
 
 	float *accel_mss2 = ReadAccelData();
@@ -756,7 +771,9 @@ float * BMI088_Accelerometer::ReadAccelData()
 	uint8_t buffer[6];
 	int16_t accel[3];
 
-	transfer(&cmd[0], 1, (uint8_t*)&buffer, 6);
+	if(transfer(&cmd[0], 1, (uint8_t*)&buffer, 6) == PX4_OK) {
+		PX4_WARN("ReadAccelData transfer success");
+	}
 
 	accel[0] = (buffer[1] << 8) | buffer[0];
 	accel[1] = (buffer[3] << 8) | buffer[2];
