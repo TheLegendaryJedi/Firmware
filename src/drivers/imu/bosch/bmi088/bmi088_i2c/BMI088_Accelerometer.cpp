@@ -694,22 +694,26 @@ bool BMI088_Accelerometer::SelfTest() {
 
 	if(RegisterWrite(Register::ACC_PWR_CONF, 0) == PX4_OK){
 		PX4_WARN("Start sensor success");
+		PX4_WARN("ACC_PWR_CONF(0): 0x%02x", RegisterRead(Register::ACC_PWR_CONF));
 	}
 	usleep(2000000);
 
 	if(RegisterWrite(Register::ACC_RANGE, 0x03) == PX4_OK){
 		PX4_WARN("Range set success");
+		PX4_WARN("ACC_RANGE(0x03): 0x%02x", RegisterRead(Register::ACC_RANGE));
 	}
 	usleep(100000);
 
 	if(RegisterWrite(Register::ACC_CONF, 0xA7) == PX4_OK){
 		PX4_WARN("Conf set success");
+		PX4_WARN("ACC_CONF(0xA7): 0x%02x", RegisterRead(Register::ACC_CONF));
 	}
 	usleep(100000);
 
 	// Positive sel-test polarity
 	if(RegisterWrite(Register::ACC_SELF_TEST, 0x0D) == PX4_OK){
 		PX4_WARN("Self-test positive mode set success");
+		PX4_WARN("ACC_SELF_TEST(0x0D): 0x%02x", RegisterRead(Register::ACC_SELF_TEST));
 	}
 	usleep(100000);
 	float *accel_mss = ReadAccelData();
@@ -721,6 +725,7 @@ bool BMI088_Accelerometer::SelfTest() {
 	// Negative sel-test polarity
 	if(RegisterWrite(Register::ACC_SELF_TEST, 0x09) == PX4_OK){
 		PX4_WARN("Self-test negative mode set success");
+		PX4_WARN("ACC_SELF_TEST(0x09): 0x%02x", RegisterRead(Register::ACC_SELF_TEST));
 	}
 	usleep(60000);
 
