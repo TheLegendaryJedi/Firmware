@@ -766,16 +766,21 @@ float * BMI088_Accelerometer::ReadAccelData()
 {
 	uint8_t cmd[1] = {0x12};
 
-	uint8_t buffer[6];
+	uint8_t buf[6] = {0, 0, 0, 0, 0, 0};
+	uint8_t* buffer = buf;
+
 	int16_t accel[3];
 
-	if(transfer(&cmd[0], 1, (uint8_t*)&buffer, 6) == PX4_OK) {
+	if(transfer(&cmd[0], 1, buffer, sizeof(buf)) == PX4_OK) {
 		PX4_WARN("ReadAccelData transfer success");
 	}
+	for(uint8_t i = 0; i < sizeof(buf); i++){
+		PX4_WARN("buf[%d]: %f", i, (double)buf[i]);
+	}
 
-	accel[0] = (buffer[1] << 8) | buffer[0];
-	accel[1] = (buffer[3] << 8) | buffer[2];
-	accel[2] = (buffer[5] << 8) | buffer[4];
+	accel[0] = (buf[1] << 8) | buf[0];
+	accel[1] = (buf[3] << 8) | buf[2];
+	accel[2] = (buf[5] << 8) | buf[4];
 
     	float *accel_mss = new float[3];
 

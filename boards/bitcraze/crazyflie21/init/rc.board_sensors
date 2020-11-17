@@ -11,4 +11,4 @@ bmi088_i2c -A -R 6 -I -a 0x18 start
 bmi088_i2c -G -R 6 -I -a 0x69 start
 
 # Optical flow deck
-vl53lxx start -X
+#vl53lxx start -X
