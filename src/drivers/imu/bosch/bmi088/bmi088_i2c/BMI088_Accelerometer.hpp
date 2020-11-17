@@ -122,7 +122,7 @@ private:
 	static constexpr uint8_t size_register_cfg{10};
 	register_config_t _register_cfg[size_register_cfg] {
 		// Register                        | Set bits, Clear bits
-		{ Register::ACC_PWR_CONF,          0, ACC_PWR_CONF_BIT::acc_pwr_save },
+		{ Register::ACC_PWR_CONF,          0, ACC_PWR_CONF_BIT::acc_pwr_save }, //
 		{ Register::ACC_PWR_CTRL,          ACC_PWR_CTRL_BIT::acc_enable, 0 },
 		{ Register::ACC_CONF,              ACC_CONF_BIT::acc_bwp_Normal | ACC_CONF_BIT::acc_odr_1600, Bit1 | Bit0 },
 		{ Register::ACC_RANGE,             ACC_RANGE_BIT::acc_range_24g, 0 },

@@ -687,6 +687,7 @@ bool BMI088_Accelerometer::SelfTest() {
 		PX4_WARN("Reset success");
 	}
 	usleep(100000);
+	Configure();
 	const uint8_t ACC_CHIP_ID = RegisterRead(Register::ACC_CHIP_ID);
 	PX4_WARN("ACC_CHIP_ID: 0x%02x", ACC_CHIP_ID);
 	usleep(30000);
