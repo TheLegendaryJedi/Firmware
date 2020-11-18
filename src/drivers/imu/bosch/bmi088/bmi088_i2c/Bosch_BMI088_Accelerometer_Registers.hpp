@@ -61,6 +61,7 @@ static constexpr uint8_t ACC_I2C_ADDR_SECONDARY = 0x19;
 
 enum class Register : uint8_t {
 	ACC_CHIP_ID        = 0x00,
+	ACC_ERR_REG        = 0x02,
 
 	TEMP_MSB           = 0x22,
 	TEMP_LSB           = 0x23,

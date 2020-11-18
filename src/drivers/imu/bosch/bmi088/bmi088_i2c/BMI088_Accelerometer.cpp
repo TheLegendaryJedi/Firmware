@@ -475,10 +475,24 @@ uint16_t BMI088_Accelerometer::FIFOReadCount()
 bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
 	FIFOTransferBuffer buffer{};
-	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 4, FIFO::SIZE);
+	//const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 3, FIFO::SIZE);
+	//uint8_t buffer_test[transfer_size + 1];
+	//buffer_test[0] = static_cast<uint8_t>(Register::FIFO_DATA);
 
-	if (transfer((uint8_t *)&buffer, 1, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
-		PX4_WARN("BAD TRANFER");
+	// Check FIFO fill level
+	int fifo_fill_level = 0;
+    	uint8_t data_o[2] = { 0, 0 };
+    	uint8_t data_i[1] = {static_cast<uint8_t>(Register::FIFO_LENGTH_0)};
+
+	transfer(&data_i[0], 1, &data_o[0], 2);
+	fifo_fill_level = data_o[0] + 256 * data_o[1];
+	PX4_WARN("fifo_fill_level %d", fifo_fill_level);
+	const size_t transfer_size = fifo_fill_level + 3;
+
+	transfer((uint8_t *)&buffer, 1, (uint8_t *)&buffer, transfer_size);
+
+	//if (transfer(&buffer_test[0], 1, &buffer_test[1], transfer_size) != PX4_OK) {
+		//PX4_WARN("BAD TRANFER");
 
 		/*for (int i = 0 ; i < (int)sizeof(buffer.f); i++) {
 
@@ -526,22 +540,22 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 		// PX4_WARN("buffer accel_y_aux:%d", accel_y_aux);
 		// PX4_WARN("buffer accel_z_aux:%d", accel_z_aux);
 
-		perf_count(_bad_transfer_perf);
-		return false;
-	}
-	PX4_WARN("GOOD TRANFER");
+		//perf_count(_bad_transfer_perf);
+		//return false;
+	//}
+	//PX4_WARN("GOOD TRANFER");
 
 	const size_t fifo_byte_counter = combine(buffer.FIFO_LENGTH_1 & 0x3F, buffer.FIFO_LENGTH_0);
 	//PX4_WARN("fifo_byte_counter %d", fifo_byte_counter);
 
 	// An empty FIFO corresponds to 0x8000
 	if (fifo_byte_counter == 0x8000) {
-		PX4_WARN("Empty FIFO");
+		//PX4_WARN("Empty FIFO");
 		perf_count(_fifo_empty_perf);
 		return false;
 
-	} else if (fifo_byte_counter >= FIFO::SIZE) {
-		PX4_WARN("Overflow FIFO");
+	} else if (fifo_byte_counter > FIFO::SIZE) {
+		//PX4_WARN("Overflow FIFO");
 		perf_count(_fifo_overflow_perf);
 		return false;
 	}
@@ -559,7 +573,7 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 	//PX4_WARN("fifo_byte_counter %d", fifo_byte_counter);
 	//PX4_WARN("transfer_size - 4 %d", transfer_size - 4);
 
-	while (fifo_buffer_index < math::min(fifo_byte_counter, transfer_size - 4)) {
+	while (fifo_buffer_index < math::min(fifo_byte_counter, transfer_size - 3)) {
 		//PX4_WARN("fifo_buffer_index < math::min(fifo_byte_counter, transfer_size - 4)");
 		// look for header signature (first 6 bits) followed by two bits indicating the status of INT1 and INT2
 		switch (data_buffer[fifo_buffer_index] & 0xFC) {
@@ -572,9 +586,9 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 				const int16_t accel_y = combine(fifo_sample->ACC_Y_MSB, fifo_sample->ACC_Y_LSB);
 				const int16_t accel_z = combine(fifo_sample->ACC_Z_MSB, fifo_sample->ACC_Z_LSB);
 
-				PX4_WARN("accel_x %d", accel_x);
-				PX4_WARN("accel_y %d", accel_y);
-				PX4_WARN("accel_z %d", accel_z);
+				//PX4_WARN("accel_x %d", accel_x);
+				//PX4_WARN("accel_y %d", accel_y);
+				//PX4_WARN("accel_z %d", accel_z);
 
 				// sensor's frame is +x forward, +y left, +z up
 				//  flip y & z to publish right handed with z down (x forward, y right, z down)
@@ -687,28 +701,39 @@ bool BMI088_Accelerometer::SelfTest() {
 		PX4_WARN("Reset success");
 	}
 	usleep(100000);
+	PX4_WARN("Accel on");
+	if(RegisterWrite(Register::ACC_PWR_CTRL, 0x04) == PX4_OK){
+		PX4_WARN("Accel on success");
+	}
+	usleep(100000);
+	PX4_WARN("Sensor ErrReg: 0x%02x", CheckSensorErrReg());
 	Configure();
+	usleep(1000000);
+	PX4_WARN("Sensor ErrReg: 0x%02x", CheckSensorErrReg());
 	const uint8_t ACC_CHIP_ID = RegisterRead(Register::ACC_CHIP_ID);
 	PX4_WARN("ACC_CHIP_ID: 0x%02x", ACC_CHIP_ID);
 	usleep(30000);
-
+	PX4_WARN("Sensor ErrReg: 0x%02x", CheckSensorErrReg());
 	if(RegisterWrite(Register::ACC_PWR_CONF, 0) == PX4_OK){
 		PX4_WARN("Start sensor success");
 		PX4_WARN("ACC_PWR_CONF(0): 0x%02x", RegisterRead(Register::ACC_PWR_CONF));
 	}
 	usleep(2000000);
+	PX4_WARN("Sensor ErrReg: 0x%02x", CheckSensorErrReg());
 
 	if(RegisterWrite(Register::ACC_RANGE, 0x03) == PX4_OK){
 		PX4_WARN("Range set success");
 		PX4_WARN("ACC_RANGE(0x03): 0x%02x", RegisterRead(Register::ACC_RANGE));
 	}
 	usleep(100000);
+	PX4_WARN("Sensor ErrReg: 0x%02x", CheckSensorErrReg());
 
 	if(RegisterWrite(Register::ACC_CONF, 0xA7) == PX4_OK){
 		PX4_WARN("Conf set success");
 		PX4_WARN("ACC_CONF(0xA7): 0x%02x", RegisterRead(Register::ACC_CONF));
 	}
 	usleep(100000);
+	PX4_WARN("Sensor ErrReg: 0x%02x", CheckSensorErrReg());
 
 	// Positive sel-test polarity
 	if(RegisterWrite(Register::ACC_SELF_TEST, 0x0D) == PX4_OK){
@@ -716,7 +741,9 @@ bool BMI088_Accelerometer::SelfTest() {
 		PX4_WARN("ACC_SELF_TEST(0x0D): 0x%02x", RegisterRead(Register::ACC_SELF_TEST));
 	}
 	usleep(100000);
-	float *accel_mss = ReadAccelData();
+	PX4_WARN("Sensor ErrReg: 0x%02x", CheckSensorErrReg());
+
+	float *accel_mss = ReadAccelDataFIFO();
 	PX4_WARN("Positive value");
 	PX4_WARN("X %f", (double)accel_mss[0]);
 	PX4_WARN("Y %f", (double)accel_mss[1]);
@@ -727,9 +754,9 @@ bool BMI088_Accelerometer::SelfTest() {
 		PX4_WARN("Self-test negative mode set success");
 		PX4_WARN("ACC_SELF_TEST(0x09): 0x%02x", RegisterRead(Register::ACC_SELF_TEST));
 	}
-	usleep(60000);
-
-	float *accel_mss2 = ReadAccelData();
+	usleep(600000);
+	PX4_WARN("Sensor ErrReg: 0x%02x", CheckSensorErrReg());
+	float *accel_mss2 = ReadAccelDataFIFO();
 	PX4_WARN("Negative value");
 	PX4_WARN("X %f", (double)accel_mss2[0]);
 	PX4_WARN("Y %f", (double)accel_mss2[1]);
@@ -761,6 +788,7 @@ bool BMI088_Accelerometer::SelfTest() {
 	RegisterWrite(Register::ACC_SELF_TEST, 0x00);
 	usleep(60000);
 
+	PX4_WARN("Sensor ErrReg: 0x%02x", CheckSensorErrReg());
 	// Reset
 	//PX4_WARN("Reseting the sensor again");
 	//RegisterWrite(Register::ACC_SOFTRESET, 0xB6);
@@ -801,62 +829,85 @@ float * BMI088_Accelerometer::ReadAccelDataFIFO()
 {
     	float *accel_mg = new float[3];
 	struct FIFO::bmi08x_sensor_data bmi08x_accel;
-	uint8_t buffer[2000] = {0};
+	uint8_t buffer[50] = {0};
 
 	PX4_WARN("FIFO mode is stop-at-full");
 	 /* Desired FIFO mode is stop-at-full: set bit #0 to 1 in 0x48. Bit #1 must always be one! */
-	buffer[0] = 0x01 | 0x02;
+	buffer[0] = 0x00 | 0x02;
 	RegisterWrite(Register::FIFO_CONFIG_0, buffer[0]);
+	PX4_WARN("FIFO_CONFIG_0(0x%02x): 0x%02x",buffer[0], RegisterRead(Register::FIFO_CONFIG_0));
 
 	PX4_WARN("Downsampling factor 2**4 = 16");
 	/* Downsampling factor 2**4 = 16: write 4 into bit #4-6 of reg. 0x45. Bit #7 must always be one! */
-	buffer[0] = (4 << 4) | 0x80;
+	buffer[0] = 0x10 | 0x80;
 	RegisterWrite(Register::FIFO_DOWN_SAMPLING, buffer[0]);
+	PX4_WARN("FIFO_DOWN_SAMPLING(0x%02x): 0x%02x",buffer[0], RegisterRead(Register::FIFO_DOWN_SAMPLING));
 
 	/* Set water mark to 42 bytes (aka 6 frames, each 7 bytes: 1 byte header + 6 bytes accel data) */
-	uint16_t wml = 42;
- 	buffer[0] = (uint8_t) wml & 0xff;
-	buffer[1] = (uint8_t) (wml >> 8) & 0xff;
-	uint8_t add = static_cast<uint8_t>(Register::FIFO_WTM_0);
-	uint8_t cmd[3] = { add, buffer[0], buffer[1]};
-	transfer(cmd, sizeof(cmd), nullptr, 0);
+	// uint16_t wml = 42;
+ 	// buffer[0] = (uint8_t) wml & 0xff;
+	// buffer[1] = (uint8_t) (wml >> 8) & 0xff;
+	// uint8_t add = static_cast<uint8_t>(Register::FIFO_WTM_0);
+	// uint8_t cmd[3] = { add, buffer[0], buffer[1]};
+	// transfer(cmd, sizeof(cmd), nullptr, 0);
+	// PX4_WARN("FIFO_WTM_0(0x%02x): 0x%02x",cmd[0], RegisterRead(Register::FIFO_WTM_0));
 
  	/* Enable the actual FIFO functionality: write 0x50 to 0x49. Bit #4 must always be one! */
 	buffer[0] = 0x10 | 0x40;
 	RegisterWrite(Register::FIFO_CONFIG_1, buffer[0]);
-	usleep(50000);
+	PX4_WARN("FIFO_CONFIG_1(0x%02x): 0x%02x",buffer[0], RegisterRead(Register::FIFO_CONFIG_1));
+	usleep(1000000);
 
 	int fifo_fill_level = 0;
-	while(fifo_fill_level < wml)
-	{
- 		buffer[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0);
-		transfer(&buffer[0], 1, &buffer[1], 2);
-		fifo_fill_level = buffer[1] + 256 * buffer[2];
-	}
 
+    	uint8_t data_o[2] = { 0, 0 };
+    	uint8_t data_i[1] = {static_cast<uint8_t>(Register::FIFO_LENGTH_0)};
+	data_i[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0);
+
+	transfer(&data_i[0], 1, &data_o[0], 2);
+	fifo_fill_level = data_o[0] + 256 * data_o[1];
+	PX4_WARN("fifo_fill_level %d", fifo_fill_level);
+
+	// while(fifo_fill_level < wml)
+	// {
+	// 	transfer(&data_i[0], 1, &data_o[0], 2);
+	// 	fifo_fill_level = data_o[0] + 256 * data_o[1];
+	// 	PX4_WARN("fifo_fill_level %d", fifo_fill_level);
+	// }
+
+	uint8_t custom_size = 42;
+	uint8_t buffer_data[custom_size] = {0};
 	buffer[0] = static_cast<uint8_t>(Register::FIFO_DATA);
-	transfer(&buffer[0], 1, &buffer[1], fifo_fill_level);
+	bmi08x_accel.x=10;
+	PX4_WARN("bmi08x_accel %d", bmi08x_accel.x);
+	transfer(&buffer[0], 1, &buffer_data[0], custom_size);
+
 	/* This is a super-simple FIFO parsing loop, hoping it will only find valid accel data packets */
-	for(int i = 1; i < fifo_fill_level;)
+	for(int i = 1; i < custom_size;)
 	{
 		/* Header of acceleration sensor data frame: 100001xxb, where x is INT1/INT2 tag, ignored here */
-		if(buffer[i] == (0x84 & 0x8c))
+		if(buffer_data[i] == (0x84 & 0x8c))
 		{
-			UnpackSensorData(&bmi08x_accel, &buffer[i + 1]);
-			PX4_WARN("Frame: %03d ax:%f ay:%f az:%f\n", i/6, (double)bmi08x_accel.x, (double)bmi08x_accel.y, (double)bmi08x_accel.z);
-			PX4_WARN("Frame in mg");
+			UnpackSensorData(&bmi08x_accel, &buffer_data[i + 1]);
+			PX4_WARN("Frame: %03d ax:%f ay:%f az:%f", i/6, (double)bmi08x_accel.x, (double)bmi08x_accel.y, (double)bmi08x_accel.z);
 			accel_mg[0] = bmi08x_accel.x;
 			accel_mg[1] = bmi08x_accel.y;
 			accel_mg[2] = bmi08x_accel.z;
 			float* data_in_mg = SensorDataTomg(accel_mg);
-			PX4_WARN("Frame: %03d ax:%f ay:%f az:%f\n", i/6, (double)data_in_mg[0], (double)data_in_mg[1], (double)data_in_mg[2]);
+			PX4_WARN("Frame mg: %03d ax:%f ay:%f az:%f", i/6, (double)data_in_mg[0], (double)data_in_mg[1], (double)data_in_mg[2]);
 			i += 7;
 		}
-		else
+		else{
 			i++;
+		}
 	}
 	return accel_mg;
 }
+
+uint8_t  BMI088_Accelerometer::CheckSensorErrReg(){
+	return RegisterRead(Register::ACC_ERR_REG);
+}
+
 void BMI088_Accelerometer::UnpackSensorData(struct FIFO::bmi08x_sensor_data *sens_data, uint8_t *buffer)
 {
 	uint16_t data_lsb;
@@ -875,6 +926,7 @@ void BMI088_Accelerometer::UnpackSensorData(struct FIFO::bmi08x_sensor_data *sen
 	data_msb = buffer[start_idx++];
 	sens_data->z = (int16_t)((data_msb << 8) | data_lsb);
 }
+
 float* BMI088_Accelerometer::SensorDataTomg(float* data)
 {
 	data[0] = (float) data[0] / 32768.0f * 1000.0f * powf(2.0f, 24.0f+1.0f) * 1.50f;
