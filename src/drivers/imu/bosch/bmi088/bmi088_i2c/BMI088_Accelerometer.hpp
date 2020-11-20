@@ -69,6 +69,10 @@ private:
 		uint8_t FIFO_LENGTH_1{0};
 		FIFO::DATA f[FIFO_MAX_SAMPLES] {};
 	};
+	// Transfer data without length
+	struct FIFOTransferBufferWithoutLength {
+		FIFO::DATA f[FIFO_MAX_SAMPLES] {};
+	};
 	// ensure no struct padding
 	static_assert(sizeof(FIFOTransferBuffer) == (3 + FIFO_MAX_SAMPLES *sizeof(FIFO::DATA)));
 
@@ -107,6 +111,7 @@ private:
 	float* ReadAccelDataFIFO();
 	float* SensorDataTomg(float* data);
 	uint8_t CheckSensorErrReg();
+	bool SimpleFIFORead(const hrt_abstime &timestamp_sample);
 
 	PX4Accelerometer _px4_accel;
 
