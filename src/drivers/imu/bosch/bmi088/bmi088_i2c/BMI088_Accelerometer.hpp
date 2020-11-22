@@ -56,6 +56,7 @@ private:
 	void exit_and_cleanup() override;
 
 	// Sensor Configuration
+	// static constexpr uint32_t RATE{1600}; // 1600 Hz
 	static constexpr uint32_t RATE{1600}; // 1600 Hz
 	static constexpr float FIFO_SAMPLE_DT{1e6f / RATE};
 

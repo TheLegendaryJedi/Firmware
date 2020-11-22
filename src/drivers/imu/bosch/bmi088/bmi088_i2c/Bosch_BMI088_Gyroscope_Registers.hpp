@@ -95,7 +95,8 @@ enum GYRO_RANGE_BIT : uint8_t {
 
 // GYRO_BANDWIDTH
 enum GYRO_BANDWIDTH_BIT : uint8_t {
-	gyro_bw_532_Hz = Bit2 | Bit1 | Bit0
+	gyro_bw_532_Hz = Bit2 | Bit1 | Bit0,
+	gyro_bw_23_Hz = 0x04
 };
 
 // GYRO_INT_CTRL

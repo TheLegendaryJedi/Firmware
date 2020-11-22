@@ -49,7 +49,7 @@ BMI088_Gyroscope::BMI088_Gyroscope(I2CSPIBusOption bus_option, int bus, uint32_t
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME"_gyro: DRDY missed");
 	}
 
-	ConfigureSampleRate(_px4_gyro.get_max_rate_hz());
+	ConfigureSampleRate(100);
 }
 
 BMI088_Gyroscope::~BMI088_Gyroscope()
@@ -99,6 +99,12 @@ void BMI088_Gyroscope::RunImpl()
 	const hrt_abstime now = hrt_absolute_time();
 
 	switch (_state) {
+
+	case STATE::SELFTEST:
+		_state = STATE::RESET;
+		ScheduleDelayed(1_ms);
+		break;
+
 	case STATE::RESET:
 		// GYRO_SOFTRESET: Writing a value of 0xB6 to this register resets the sensor.
 		// Following a delay of 30 ms, all configuration settings are overwritten with their reset value.
@@ -129,11 +135,6 @@ void BMI088_Gyroscope::RunImpl()
 		}
 
 		break;
-
-	case STATE::SELFTEST:
-		_state = STATE::RESET;
-		break;
-
 	case STATE::CONFIGURE:
 		if (Configure()) {
 			// if configure succeeded then start reading from FIFO
@@ -182,7 +183,9 @@ void BMI088_Gyroscope::RunImpl()
 			bool success = false;
 			const uint8_t FIFO_STATUS = RegisterRead(Register::FIFO_STATUS);
 
+
 			if (FIFO_STATUS & FIFO_STATUS_BIT::Fifo_overrun) {
+				//PX4_WARN("Fifo_overrun");
 				FIFOReset();
 				perf_count(_fifo_overflow_perf);
 
@@ -200,7 +203,6 @@ void BMI088_Gyroscope::RunImpl()
 				} else if (fifo_frame_counter >= 1) {
 					if (FIFORead(now, fifo_frame_counter)) {
 						success = true;
-
 						if (_failure_count > 0) {
 							_failure_count--;
 						}
@@ -210,7 +212,7 @@ void BMI088_Gyroscope::RunImpl()
 
 			if (!success) {
 				_failure_count++;
-
+				//PX4_WARN("!success _failure_count: %d", _failure_count);
 				// full reset if things are failing consistently
 				if (_failure_count > 10) {
 					Reset();
@@ -271,7 +273,7 @@ void BMI088_Gyroscope::ConfigureGyro()
 void BMI088_Gyroscope::ConfigureSampleRate(int sample_rate)
 {
 	if (sample_rate == 0) {
-		sample_rate = 1000; // default to 1000 Hz
+		sample_rate = 100; // default to 1000 Hz
 	}
 
 	// round down to nearest FIFO sample dt * SAMPLES_PER_TRANSFER
@@ -399,12 +401,14 @@ void BMI088_Gyroscope::RegisterSetAndClearBits(Register reg, uint8_t setbits, ui
 
 bool BMI088_Gyroscope::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
+	//PX4_WARN("Samples: %d", samples);
 	FIFOTransferBuffer buffer{};
-	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 1, FIFO::SIZE);
+	size_t transfer_size = math::min(samples * sizeof(FIFO::DATA), FIFO::SIZE);
+	int res = -1;
+	while(res < 0){
+		res = transfer((uint8_t *)&buffer, 1, (uint8_t *)&buffer, transfer_size);
+		transfer_size -= 1;
 
-	if (transfer((uint8_t *)&buffer, transfer_size, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
-		perf_count(_bad_transfer_perf);
-		return false;
 	}
 
 	sensor_gyro_fifo_s gyro{};
