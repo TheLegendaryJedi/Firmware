@@ -475,13 +475,14 @@ uint16_t BMI088_Accelerometer::FIFOReadCount()
 bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
 	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA), FIFO::SIZE);
+	PX4_WARN("samples: %d", samples);
 	PX4_WARN("transfer_size: %d", transfer_size);
 
-	FIFO::DATA buffer[samples + 1] = {0};
-	uint8_t buffer_test[126] = {0};
+	// FIFO::DATA buffer[samples + 1] = {0};
+	uint8_t buffer_test[transfer_size] = {0};
 	uint8_t add = static_cast<uint8_t>(Register::FIFO_DATA);
 	uint8_t cmd[1] = {add};
-	int res = transfer(&cmd[0], 1, &buffer_test[0], 126);
+	int res = transfer(&cmd[0], 1, &buffer_test[0], transfer_size);
 
 	if(res != PX4_OK) {
 		PX4_WARN("bad transfer res: %d", res);
@@ -508,10 +509,10 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 	accel.dt = FIFO_SAMPLE_DT;
 
 	// first find all sensor data frames in the buffer
-	uint8_t *data_buffer = (uint8_t *)&buffer[0];
-	unsigned fifo_buffer_index = 0; // start of buffer
+	// uint8_t *data_buffer = (uint8_t *)&buffer[0];
+	// unsigned fifo_buffer_index = 0; // start of buffer
 
-	while (fifo_buffer_index < math::min(fifo_byte_counter, transfer_size - 4)) {
+	/*while (fifo_buffer_index < math::min(fifo_byte_counter, transfer_size - 4)) {
 		// look for header signature (first 6 bits) followed by two bits indicating the status of INT1 and INT2
 		switch (data_buffer[fifo_buffer_index] & 0xFC) {
 		case FIFO::header::sensor_data_frame: {
@@ -566,7 +567,7 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 			fifo_buffer_index++;
 			break;
 		}
-	}
+	}*/
 
 	_px4_accel.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
 				   perf_event_count(_fifo_empty_perf) + perf_event_count(_fifo_overflow_perf));
