@@ -101,6 +101,7 @@ void BMI088_Gyroscope::RunImpl()
 	switch (_state) {
 
 	case STATE::SELFTEST:
+		SelfTest();
 		_state = STATE::RESET;
 		ScheduleDelayed(1_ms);
 		break;
@@ -460,4 +461,29 @@ void BMI088_Gyroscope::FIFOReset()
 	}
 }
 
+
+bool BMI088_Gyroscope::SelfTest() {
+	//Datasheet page 17 self test
+
+	//Set bit0 to enable built in self test
+	RegisterWrite(Register::SELF_TEST, 0x01);
+	usleep(10000);
+	uint8_t res = 0;
+	uint8_t test_res = false;
+	while(true){
+		res = RegisterRead(Register::SELF_TEST);
+		if((res & 0x02) == 0x02){
+			if((res & 0x04) == 0x00) {
+				PX4_WARN("Gyro Self-test success");
+				test_res = true;
+			} else {
+				PX4_WARN("Gyro Self-test error");
+			}
+			break;
+		}
+	}
+
+	RegisterWrite(Register::SELF_TEST, 0x00);
+	return test_res;
+}
 } // namespace Bosch::BMI088::Gyroscope

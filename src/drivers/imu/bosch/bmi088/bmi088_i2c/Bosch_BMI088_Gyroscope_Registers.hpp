@@ -76,6 +76,7 @@ enum class Register : uint8_t {
 	FIFO_CONFIG_0     = 0x3D,
 	FIFO_CONFIG_1     = 0x3E,
 	FIFO_DATA         = 0x3F,
+	SELF_TEST         = 0x3C,
 };
 
 // FIFO_STATUS
