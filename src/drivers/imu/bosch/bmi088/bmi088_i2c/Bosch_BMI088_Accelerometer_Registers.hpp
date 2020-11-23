@@ -90,16 +90,22 @@ enum class Register : uint8_t {
 	ACC_SELF_TEST      = 0x6D,
 	ACC_I2C_ADDR_PRIMARY_REG = 0x6D,
 	ACC_I2C_ADDR_SECONDARY_REG = 0x19,
-	BMI088_ACCEL_X_LSB_REG = 0x12
+	ACC_READ = 0x12
 };
 
 // ACC_CONF
 enum ACC_CONF_BIT : uint8_t {
 	// [7:4] acc_bwp
 	acc_bwp_Normal = Bit7 | Bit5,        // Filter setting normal
+	// [7:4] acc_bwp
+	acc_bwp_osr_4 = Bit7,        // OSR4
 
 	// [3:0] acc_odr
 	acc_odr_1600   = Bit3 | Bit2,        // ODR 1600 Hz
+	// [3:0] acc_odr
+	acc_odr_12_5   = Bit2 | Bit0,        // ODR 12.5 Hz
+	// [3:0] acc_odr
+	acc_odr_100   = Bit3,        	     // ODR 100 Hz
 };
 
 // ACC_RANGE

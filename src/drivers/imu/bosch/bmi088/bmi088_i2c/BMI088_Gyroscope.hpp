@@ -97,6 +97,7 @@ private:
 	void FIFOReset();
 
 	bool SelfTest();
+	bool NormalRead(const hrt_abstime &timestamp_sample);
 	PX4Gyroscope _px4_gyro;
 
 	perf_counter_t _bad_register_perf{perf_alloc(PC_COUNT, MODULE_NAME"_gyro: bad register")};
@@ -113,13 +114,13 @@ private:
 	register_config_t _register_cfg[size_register_cfg] {
 		// Register                         | Set bits, Clear bits
 		{ Register::GYRO_RANGE,             GYRO_RANGE_BIT::gyro_range_2000_dps, 0 },
-		{ Register::GYRO_BANDWIDTH,         0, GYRO_BANDWIDTH_BIT::gyro_bw_23_Hz},
+		{ Register::GYRO_BANDWIDTH,         0, GYRO_BANDWIDTH_BIT::gyro_bw_100_Hz},
 		{ Register::GYRO_INT_CTRL,          GYRO_INT_CTRL_BIT::fifo_en, 0 },
 		{ Register::INT3_INT4_IO_CONF,      0, INT3_INT4_IO_CONF_BIT::Int3_od | INT3_INT4_IO_CONF_BIT::Int3_lvl },
 		{ Register::INT3_INT4_IO_MAP,       INT3_INT4_IO_MAP_BIT::Int3_fifo, 0 },
 		{ Register::FIFO_WM_ENABLE,         FIFO_WM_ENABLE_BIT::fifo_wm_enable, 0 },
-		{ Register::FIFO_CONFIG_0,          0x80, 0 }, // fifo_water_mark_level_trigger_retain<6:0>
-		{ Register::FIFO_CONFIG_1,          FIFO_CONFIG_1_BIT::FIFO_MODE, 0 },
+		{ Register::FIFO_CONFIG_0,          0, 0 }, // fifo_water_mark_level_trigger_retain<6:0>
+		{ Register::FIFO_CONFIG_1,          FIFO_CONFIG_1_BIT::FIFO_MODE_STREAM, 0 },
 	};
 };
 

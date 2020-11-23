@@ -77,6 +77,7 @@ enum class Register : uint8_t {
 	FIFO_CONFIG_1     = 0x3E,
 	FIFO_DATA         = 0x3F,
 	SELF_TEST         = 0x3C,
+	READ_GYRO         = 0x02,
 };
 
 // FIFO_STATUS
@@ -96,8 +97,9 @@ enum GYRO_RANGE_BIT : uint8_t {
 
 // GYRO_BANDWIDTH
 enum GYRO_BANDWIDTH_BIT : uint8_t {
-	gyro_bw_532_Hz = Bit2 | Bit1 | Bit0,
-	gyro_bw_23_Hz = 0x04
+	gyro_bw_100_Hz = Bit2 | Bit1 | Bit0,
+	gyro_bw_200_Hz = Bit4,
+	gyro_bw_2000_Hz = 0x00,
 };
 
 // GYRO_INT_CTRL
@@ -129,6 +131,7 @@ enum FIFO_WM_ENABLE_BIT : uint8_t {
 // FIFO_CONFIG_1
 enum FIFO_CONFIG_1_BIT : uint8_t {
 	FIFO_MODE = Bit6,
+	FIFO_MODE_STREAM = Bit7,
 };
 
 

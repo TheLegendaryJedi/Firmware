@@ -192,93 +192,95 @@ void BMI088_Accelerometer::RunImpl()
 		break;
 
 	case STATE::FIFO_READ: {
-			uint32_t samples = 0;
+			NormalRead(now);
 
-			if (_data_ready_interrupt_enabled) {
-				// scheduled from interrupt if _drdy_fifo_read_samples was set as expected
-				if (_drdy_fifo_read_samples.fetch_and(0) != _fifo_samples) {
-					perf_count(_drdy_missed_perf);
+			// uint32_t samples = 0;
 
-				} else {
-					samples = _fifo_samples;
-				}
+			// if (_data_ready_interrupt_enabled) {
+			// 	// scheduled from interrupt if _drdy_fifo_read_samples was set as expected
+			// 	if (_drdy_fifo_read_samples.fetch_and(0) != _fifo_samples) {
+			// 		perf_count(_drdy_missed_perf);
 
-				// push backup schedule back
-				ScheduleDelayed(_fifo_empty_interval_us * 2);
-			}
+			// 	} else {
+			// 		samples = _fifo_samples;
+			// 	}
 
-			if (samples == 0) {
-				//PX4_WARN("check current FIFO count");
-				// check current FIFO count
-				const uint16_t fifo_byte_counter = FIFOReadCount();
+			// 	// push backup schedule back
+			// 	ScheduleDelayed(_fifo_empty_interval_us * 2);
+			// }
 
-				if (fifo_byte_counter >= FIFO::SIZE) {
-					//PX4_WARN("fifo_byte_counter >= FIFO::SIZE");
-					FIFOReset();
-					perf_count(_fifo_overflow_perf);
+			// if (samples == 0) {
+			// 	//PX4_WARN("check current FIFO count");
+			// 	// check current FIFO count
+			// 	const uint16_t fifo_byte_counter = FIFOReadCount();
 
-				} else if ((fifo_byte_counter == 0) || (fifo_byte_counter == 0x8000)) {
-					//PX4_WARN("(fifo_byte_counter == 0) || (fifo_byte_counter == 0x8000)");
-					// An empty FIFO corresponds to 0x8000
-					perf_count(_fifo_empty_perf);
+			// 	if (fifo_byte_counter >= FIFO::SIZE) {
+			// 		//PX4_WARN("fifo_byte_counter >= FIFO::SIZE");
+			// 		FIFOReset();
+			// 		perf_count(_fifo_overflow_perf);
 
-				} else {
-					samples = fifo_byte_counter / sizeof(FIFO::DATA);
-					if (samples > FIFO_MAX_SAMPLES) {
-						// not technically an overflow, but more samples than we expected or can publish
-						FIFOReset();
-						perf_count(_fifo_overflow_perf);
-						samples = 0;
-					}
-				}
-			}
+			// 	} else if ((fifo_byte_counter == 0) || (fifo_byte_counter == 0x8000)) {
+			// 		//PX4_WARN("(fifo_byte_counter == 0) || (fifo_byte_counter == 0x8000)");
+			// 		// An empty FIFO corresponds to 0x8000
+			// 		perf_count(_fifo_empty_perf);
 
-			bool success = false;
+			// 	} else {
+			// 		samples = fifo_byte_counter / sizeof(FIFO::DATA);
+			// 		if (samples > FIFO_MAX_SAMPLES) {
+			// 			// not technically an overflow, but more samples than we expected or can publish
+			// 			FIFOReset();
+			// 			perf_count(_fifo_overflow_perf);
+			// 			samples = 0;
+			// 		}
+			// 	}
+			// }
 
-			if (samples >= 1) {
-				if (FIFORead(now, samples)) {
-					//PX4_WARN("FIFORead success = true");
-					success = true;
+			// bool success = false;
 
-					if (_failure_count > 0) {
-						_failure_count--;
-					}
-				}
-			}
+			// if (samples >= 1) {
+			// 	if (FIFORead(now, samples)) {
+			// 		//PX4_WARN("FIFORead success = true");
+			// 		success = true;
 
-			if (!success) {
-				//PX4_WARN("!success");
-				_failure_count++;
+			// 		if (_failure_count > 0) {
+			// 			_failure_count--;
+			// 		}
+			// 	}
+			// }
 
-				// full reset if things are failing consistently
-				if (_failure_count > 10) {
-					Reset();
-					return;
-				}
-			}
+			// if (!success) {
+			// 	//PX4_WARN("!success");
+			// 	_failure_count++;
 
-			if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
-				//PX4_WARN("check configuration registers periodically");
-				// check configuration registers periodically or immediately following any failure
-				if (RegisterCheck(_register_cfg[_checked_register])) {
-					_last_config_check_timestamp = now;
-					_checked_register = (_checked_register + 1) % size_register_cfg;
+			// 	// full reset if things are failing consistently
+			// 	if (_failure_count > 10) {
+			// 		Reset();
+			// 		return;
+			// 	}
+			// }
 
-				} else {
-					PX4_WARN("_bad_register_perf");
-					// register check failed, force reset
-					perf_count(_bad_register_perf);
-					Reset();
-				}
+			// if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
+			// 	//PX4_WARN("check configuration registers periodically");
+			// 	// check configuration registers periodically or immediately following any failure
+			// 	if (RegisterCheck(_register_cfg[_checked_register])) {
+			// 		_last_config_check_timestamp = now;
+			// 		_checked_register = (_checked_register + 1) % size_register_cfg;
 
-			} else {
-				// periodically update temperature (~1 Hz)
-				//PX4_WARN("periodically update temperature");
-				if (hrt_elapsed_time(&_temperature_update_timestamp) >= 1_s) {
-					UpdateTemperature();
-					_temperature_update_timestamp = now;
-				}
-			}
+			// 	} else {
+			// 		PX4_WARN("_bad_register_perf");
+			// 		// register check failed, force reset
+			// 		perf_count(_bad_register_perf);
+			// 		Reset();
+			// 	}
+
+			// } else {
+			// 	// periodically update temperature (~1 Hz)
+			// 	//PX4_WARN("periodically update temperature");
+			// 	if (hrt_elapsed_time(&_temperature_update_timestamp) >= 1_s) {
+			// 		UpdateTemperature();
+			// 		_temperature_update_timestamp = now;
+			// 	}
+			// }
 		}
 
 		break;
@@ -927,4 +929,37 @@ float* BMI088_Accelerometer::SensorDataTomg(float* data)
 	data[2] = (float) data[2] / 32768.0f * 1000.0f * powf(2.0f, 24.0f+1.0f) * 1.50f;
 	return data;
 }
+
+bool BMI088_Accelerometer::NormalRead(const hrt_abstime &timestamp_sample) {
+	float x = 0;
+	float y = 0;
+	float z = 0;
+	uint8_t buffer[6] = {0};
+	uint8_t cmd[1] = {static_cast<uint8_t>(Register::ACC_READ)};
+
+	transfer(&cmd[0], 1, &buffer[0], 6);
+
+	uint8_t RATE_X_LSB = buffer[0];
+	uint8_t RATE_X_MSB = buffer[1];
+	uint8_t RATE_Y_LSB = buffer[2];
+	uint8_t RATE_Y_MSB = buffer[3];
+	uint8_t RATE_Z_LSB = buffer[4];
+	uint8_t RATE_Z_MSB = buffer[5];
+
+	const int16_t accel_x = combine(RATE_X_MSB, RATE_X_LSB);
+	const int16_t accel_y = combine(RATE_Y_MSB, RATE_Y_LSB);
+	const int16_t accel_z = combine(RATE_Z_MSB, RATE_Z_LSB);
+
+	// sensor's frame is +x forward, +y left, +z up
+	//  flip y & z to publish right handed with z down (x forward, y right, z down)
+	x = accel_x;
+	y = (accel_y == INT16_MIN) ? INT16_MAX : -accel_y;
+	z = (accel_z == INT16_MIN) ? INT16_MAX : -accel_z;
+
+	//PX4_WARN("x: %f | y: %f | z: %f", (double)x, (double)y ,(double)z);
+	_px4_accel.update(timestamp_sample, x, y, z);
+
+	return true;
+}
+
 } // namespace Bosch::BMI088::Accelerometer
