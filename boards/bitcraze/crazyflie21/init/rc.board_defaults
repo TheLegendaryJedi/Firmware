@@ -8,7 +8,7 @@ param set CBRK_SUPPLY_CHK 894281
 
 if param compare SYS_AUTOSTART 0
 then
-	param set SYS_AUTOSTART 4900
+	param set SYS_AUTOSTART 4901
 	set AUTOCNF yes
 fi
 
