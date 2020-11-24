@@ -931,6 +931,10 @@ float* BMI088_Accelerometer::SensorDataTomg(float* data)
 }
 
 bool BMI088_Accelerometer::NormalRead(const hrt_abstime &timestamp_sample) {
+	const int16_t tX[3] = {1, 0, 0};
+	const int16_t tY[3] = {0, -1, 0};
+	const int16_t tZ[3] = {0, 0, -1};
+
 	float x = 0;
 	float y = 0;
 	float z = 0;
@@ -941,8 +945,10 @@ bool BMI088_Accelerometer::NormalRead(const hrt_abstime &timestamp_sample) {
 
 	uint8_t RATE_X_LSB = buffer[0];
 	uint8_t RATE_X_MSB = buffer[1];
+
 	uint8_t RATE_Y_LSB = buffer[2];
 	uint8_t RATE_Y_MSB = buffer[3];
+
 	uint8_t RATE_Z_LSB = buffer[4];
 	uint8_t RATE_Z_MSB = buffer[5];
 
@@ -952,9 +958,9 @@ bool BMI088_Accelerometer::NormalRead(const hrt_abstime &timestamp_sample) {
 
 	// sensor's frame is +x forward, +y left, +z up
 	//  flip y & z to publish right handed with z down (x forward, y right, z down)
-	x = accel_x;
-	y = (accel_y == INT16_MIN) ? INT16_MAX : -accel_y;
-	z = (accel_z == INT16_MIN) ? INT16_MAX : -accel_z;
+	x = accel_x * tX[0] + accel_y * tX[1] + accel_z * tX[2];
+	y = accel_x * tY[0] + accel_y * tY[1] + accel_z * tY[2];
+	z = accel_x * tZ[0] + accel_y * tZ[1] + accel_z * tZ[2];
 
 	//PX4_WARN("x: %f | y: %f | z: %f", (double)x, (double)y ,(double)z);
 	_px4_accel.update(timestamp_sample, x, y, z);
