@@ -49,7 +49,7 @@ BMI088_Accelerometer::BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, 
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME"_accel: DRDY missed");
 	}
 
-	ConfigureSampleRate(800);
+	ConfigureSampleRate(1600);
 }
 
 BMI088_Accelerometer::~BMI088_Accelerometer()
@@ -192,97 +192,8 @@ void BMI088_Accelerometer::RunImpl()
 		break;
 
 	case STATE::FIFO_READ: {
-			NormalRead(now);
-
-			// uint32_t samples = 0;
-
-			// if (_data_ready_interrupt_enabled) {
-			// 	// scheduled from interrupt if _drdy_fifo_read_samples was set as expected
-			// 	if (_drdy_fifo_read_samples.fetch_and(0) != _fifo_samples) {
-			// 		perf_count(_drdy_missed_perf);
-
-			// 	} else {
-			// 		samples = _fifo_samples;
-			// 	}
-
-			// 	// push backup schedule back
-			// 	ScheduleDelayed(_fifo_empty_interval_us * 2);
-			// }
-
-			// if (samples == 0) {
-			// 	//PX4_WARN("check current FIFO count");
-			// 	// check current FIFO count
-			// 	const uint16_t fifo_byte_counter = FIFOReadCount();
-
-			// 	if (fifo_byte_counter >= FIFO::SIZE) {
-			// 		//PX4_WARN("fifo_byte_counter >= FIFO::SIZE");
-			// 		FIFOReset();
-			// 		perf_count(_fifo_overflow_perf);
-
-			// 	} else if ((fifo_byte_counter == 0) || (fifo_byte_counter == 0x8000)) {
-			// 		//PX4_WARN("(fifo_byte_counter == 0) || (fifo_byte_counter == 0x8000)");
-			// 		// An empty FIFO corresponds to 0x8000
-			// 		perf_count(_fifo_empty_perf);
-
-			// 	} else {
-			// 		samples = fifo_byte_counter / sizeof(FIFO::DATA);
-			// 		if (samples > FIFO_MAX_SAMPLES) {
-			// 			// not technically an overflow, but more samples than we expected or can publish
-			// 			FIFOReset();
-			// 			perf_count(_fifo_overflow_perf);
-			// 			samples = 0;
-			// 		}
-			// 	}
-			// }
-
-			// bool success = false;
-
-			// if (samples >= 1) {
-			// 	if (FIFORead(now, samples)) {
-			// 		//PX4_WARN("FIFORead success = true");
-			// 		success = true;
-
-			// 		if (_failure_count > 0) {
-			// 			_failure_count--;
-			// 		}
-			// 	}
-			// }
-
-			// if (!success) {
-			// 	//PX4_WARN("!success");
-			// 	_failure_count++;
-
-			// 	// full reset if things are failing consistently
-			// 	if (_failure_count > 10) {
-			// 		Reset();
-			// 		return;
-			// 	}
-			// }
-
-			// if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
-			// 	//PX4_WARN("check configuration registers periodically");
-			// 	// check configuration registers periodically or immediately following any failure
-			// 	if (RegisterCheck(_register_cfg[_checked_register])) {
-			// 		_last_config_check_timestamp = now;
-			// 		_checked_register = (_checked_register + 1) % size_register_cfg;
-
-			// 	} else {
-			// 		PX4_WARN("_bad_register_perf");
-			// 		// register check failed, force reset
-			// 		perf_count(_bad_register_perf);
-			// 		Reset();
-			// 	}
-
-			// } else {
-			// 	// periodically update temperature (~1 Hz)
-			// 	//PX4_WARN("periodically update temperature");
-			// 	if (hrt_elapsed_time(&_temperature_update_timestamp) >= 1_s) {
-			// 		UpdateTemperature();
-			// 		_temperature_update_timestamp = now;
-			// 	}
-			// }
+			FIFOReadTest(now);
 		}
-
 		break;
 	}
 }
@@ -325,11 +236,14 @@ void BMI088_Accelerometer::ConfigureSampleRate(int sample_rate)
 	const float min_interval = FIFO_SAMPLE_DT;
 	_fifo_empty_interval_us = math::max(roundf((1e6f / (float)sample_rate) / min_interval) * min_interval, min_interval);
 
+	PX4_WARN("_fifo_empty_interval_us %d", _fifo_empty_interval_us);
 	_fifo_samples = math::min((float)_fifo_empty_interval_us / (1e6f / RATE), (float)FIFO_MAX_SAMPLES);
 
+	PX4_WARN("_fifo_samples %d", _fifo_samples);
 	// recompute FIFO empty interval (us) with actual sample limit
 	_fifo_empty_interval_us = _fifo_samples * (1e6f / RATE);
 
+	PX4_WARN("_fifo_empty_interval_us %d", _fifo_empty_interval_us);
 	//PX4_WARN("_fifo_samples %d", _fifo_samples);
 	ConfigureFIFOWatermark(_fifo_samples);
 }
@@ -443,60 +357,32 @@ void BMI088_Accelerometer::RegisterSetAndClearBits(Register reg, uint8_t setbits
 uint16_t BMI088_Accelerometer::FIFOReadCount()
 {
 	// FIFO length registers FIFO_LENGTH_1 and FIFO_LENGTH_0 contain the 14 bit FIFO byte
-	uint8_t fifo_len_buf[4] {};
+	uint8_t fifo_len_buf[2] {};
 	fifo_len_buf[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0) | DIR_READ;
-
-	//PX4_WARN("fifo_len_buf 0x%02x", fifo_len_buf[0]);
-
-	//fifo_len_buf[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0);
 	// fifo_len_buf[1] dummy byte
 
-	if (transfer(&fifo_len_buf[0], 1, &fifo_len_buf[0], sizeof(fifo_len_buf)) != PX4_OK) {
+	if (transfer(&fifo_len_buf[0], 1, &fifo_len_buf[0], 2) != PX4_OK) {
 		perf_count(_bad_transfer_perf);
 		return 0;
 	}
 
-	const uint8_t FIFO_LENGTH_0 = fifo_len_buf[2];        // fifo_byte_counter[7:0]
-	const uint8_t FIFO_LENGTH_1 = fifo_len_buf[3] & 0x3F; // fifo_byte_counter[13:8]
-
-	//PX4_WARN("combine(FIFO_LENGTH_1, FIFO_LENGTH_0) %d", combine(FIFO_LENGTH_1, FIFO_LENGTH_0));
-
-	/*if(FIFO_LENGTH_0 != 0){
-		PX4_WARN("FIFO_LENGTH_0 %d", FIFO_LENGTH_0);
-	}
-	if(FIFO_LENGTH_1 != 0){
-		PX4_WARN("FIFO_LENGTH_1 %d", FIFO_LENGTH_1);
-	}
-	if(combine(FIFO_LENGTH_1, FIFO_LENGTH_0) != 0){
-		PX4_WARN("combine(FIFO_LENGTH_1, FIFO_LENGTH_0) %d", combine(FIFO_LENGTH_1, FIFO_LENGTH_0));
-	}*/
+	const uint8_t FIFO_LENGTH_0 = fifo_len_buf[0];        // fifo_byte_counter[7:0]
+	const uint8_t FIFO_LENGTH_1 = fifo_len_buf[1] & 0x3F; // fifo_byte_counter[13:8]
 
 	return combine(FIFO_LENGTH_1, FIFO_LENGTH_0);
 }
 
 bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
-	size_t transfer_size = math::min(samples * sizeof(FIFO::DATA), FIFO::SIZE);
+	FIFOTransferBuffer buffer{};
+	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 4, FIFO::SIZE);
 
-	FIFO::DATA buffer[samples] = {0};
-	uint8_t add = static_cast<uint8_t>(Register::FIFO_DATA);
-	uint8_t cmd[1] = {add};
-	int res = -1;
-	while(res < 0){
-		res = transfer(&cmd[0], 1, (uint8_t *)&buffer, transfer_size);
-		transfer_size -= 1;
-		//PX4_WARN("transfer_size: %d", transfer_size);
-
+	if (transfer((uint8_t *)&buffer, 1, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
+		perf_count(_bad_transfer_perf);
+		return false;
 	}
-
-	// if(res != PX4_OK) {
-	// 	PX4_WARN("bad transfer res: %d", res);
-	// 	perf_count(_bad_transfer_perf);
-	// 	return false;
-	// }
-
-	// PX4_WARN("good transfer res: %d", res);
-	const size_t fifo_byte_counter = transfer_size;
+	//PX4_WARN("Accel transfer success");
+	const size_t fifo_byte_counter = combine(buffer.FIFO_LENGTH_1 & 0x3F, buffer.FIFO_LENGTH_0);
 
 	// An empty FIFO corresponds to 0x8000
 	if (fifo_byte_counter == 0x8000) {
@@ -514,7 +400,7 @@ bool BMI088_Accelerometer::FIFORead(const hrt_abstime &timestamp_sample, uint8_t
 	accel.dt = FIFO_SAMPLE_DT;
 
 	// first find all sensor data frames in the buffer
-	uint8_t *data_buffer = (uint8_t *)&buffer[0];
+	uint8_t *data_buffer = (uint8_t *)&buffer.f[0];
 	unsigned fifo_buffer_index = 0; // start of buffer
 
 	while (fifo_buffer_index < math::min(fifo_byte_counter, transfer_size - 4)) {
@@ -602,42 +488,43 @@ bool BMI088_Accelerometer::SimpleFIFORead(const hrt_abstime &timestamp_sample)
 	fifo_fill_level = data_o[0] + 256 * data_o[1];
 	//PX4_WARN("fifo_fill_level %d", fifo_fill_level);
 
-	uint8_t custom_size = fifo_fill_level * 7;
+	//uint8_t custom_size = fifo_fill_level * 7;
+	uint8_t custom_size = fifo_fill_level;
 	uint8_t buffer_data[custom_size] = {0};
 	uint8_t buffer[1] = {0};
 	buffer[0] = static_cast<uint8_t>(Register::FIFO_DATA);
-	transfer(&buffer[0], 1, &buffer_data[0], custom_size);
+	if(fifo_fill_level > 0){
+		transfer(&buffer[0], 1, &buffer_data[0], custom_size);
+		struct FIFO::bmi08x_sensor_data bmi08x_accel;
 
-	struct FIFO::bmi08x_sensor_data bmi08x_accel;
-
-	/* This is a super-simple FIFO parsing loop, hoping it will only find valid accel data packets */
-	for(int i = 1; i < custom_size;)
-	{
-		/* Header of acceleration sensor data frame: 100001xxb, where x is INT1/INT2 tag, ignored here */
-		if(buffer_data[i] == (0x84 & 0x8c))
+		/* This is a super-simple FIFO parsing loop, hoping it will only find valid accel data packets */
+		for(int i = 1; i < custom_size;)
 		{
-			UnpackSensorData(&bmi08x_accel, &buffer_data[i + 1]);
-			//PX4_WARN("Frame: %03d ax:%f ay:%f az:%f", i/6, (double)bmi08x_accel.x, (double)bmi08x_accel.y, (double)bmi08x_accel.z);
+			/* Header of acceleration sensor data frame: 100001xxb, where x is INT1/INT2 tag, ignored here */
+			if(buffer_data[i] == (0x84 & 0x8c))
+			{
+				UnpackSensorData(&bmi08x_accel, &buffer_data[i + 1]);
+				//PX4_WARN("Frame: %03d ax:%f ay:%f az:%f", i/6, (double)bmi08x_accel.x, (double)bmi08x_accel.y, (double)bmi08x_accel.z);
 
-			accel.x[accel.samples] = bmi08x_accel.x;
-			accel.y[accel.samples] = bmi08x_accel.y;
-			accel.z[accel.samples] = bmi08x_accel.z;
-			accel.samples++;
-			i += 7;
+				accel.x[accel.samples] = bmi08x_accel.x;
+				accel.y[accel.samples] = bmi08x_accel.y;
+				accel.z[accel.samples] = bmi08x_accel.z;
+				accel.samples++;
+				i += 7;
+			}
+			else{
+				i++;
+			}
 		}
-		else{
-			i++;
+
+		_px4_accel.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
+					perf_event_count(_fifo_empty_perf) + perf_event_count(_fifo_overflow_perf));
+
+		if (accel.samples > 0) {
+			_px4_accel.updateFIFO(accel);
+			return true;
 		}
 	}
-
-	_px4_accel.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
-				   perf_event_count(_fifo_empty_perf) + perf_event_count(_fifo_overflow_perf));
-
-	if (accel.samples > 0) {
-		_px4_accel.updateFIFO(accel);
-		return true;
-	}
-
 	return false;
 }
 
@@ -968,4 +855,107 @@ bool BMI088_Accelerometer::NormalRead(const hrt_abstime &timestamp_sample) {
 	return true;
 }
 
+bool BMI088_Accelerometer::FIFOReadTest(const hrt_abstime &timestamp_sample){
+	sensor_accel_fifo_s accel{};
+	accel.timestamp_sample = timestamp_sample;
+	accel.samples = 0;
+	accel.dt = FIFO_SAMPLE_DT;
+
+	int fifo_fill_level = 0;
+
+	uint8_t data_o[2] = { 0, 0 };
+	uint8_t data_i[1] = {static_cast<uint8_t>(Register::FIFO_LENGTH_0)};
+	data_i[0] = static_cast<uint8_t>(Register::FIFO_LENGTH_0);
+
+	transfer(&data_i[0], 1, &data_o[0], 2);
+	fifo_fill_level = data_o[0] + (data_o[1]<<8);
+	if (fifo_fill_level & 0x8000) {
+		//PX4_WARN("fifo_fill_level & 0x8000");
+		// empty
+		return false;
+	}
+
+	// don't read more than 8 frames at a time
+	if (fifo_fill_level > 5*7) {
+		fifo_fill_level = 5*7;
+	}
+
+	if (fifo_fill_level == 0) {
+		//PX4_WARN("fifo_fill_level == 0");
+		return false;
+	}
+
+    	uint8_t data[fifo_fill_level];
+	data[0] = static_cast<uint8_t>(Register::FIFO_DATA);
+	if(transfer(&data[0], 1, &data[0], fifo_fill_level) != PX4_OK) {
+		//PX4_WARN("transfer(&data[0], 1, &data[0], fifo_fill_level) != PX4_OK");
+		return false;
+	}
+	const uint8_t *p = &data[0];
+
+	while (fifo_fill_level >= 7) {
+		/*
+		the fifo frames are variable length, with the frame type in the first byte
+		*/
+		uint8_t frame_len = 2;
+		switch (p[0] & 0xFC) {
+			case 0x84: {
+				// accel frame
+				frame_len = 7;
+				const uint8_t *d = p+1;
+				int16_t xyz[3] {
+					int16_t(uint16_t(d[0] | (d[1]<<8))),
+					int16_t(uint16_t(d[2] | (d[3]<<8))),
+					int16_t(uint16_t(d[4] | (d[5]<<8)))};
+
+
+				const int16_t tX[3] = {1, 0, 0};
+				const int16_t tY[3] = {0, -1, 0};
+				const int16_t tZ[3] = {0, 0, -1};
+
+				float x = 0;
+				float y = 0;
+				float z = 0;
+
+				x = xyz[0] * tX[0] + xyz[1] * tX[1] + xyz[2] * tX[2];
+				y = xyz[0] * tY[0] + xyz[1] * tY[1] + xyz[2] * tY[2];
+				z = xyz[0] * tZ[0] + xyz[1] * tZ[1] + xyz[2] * tZ[2];
+
+				accel.x[accel.samples] = x;
+				accel.y[accel.samples] = y;
+				accel.z[accel.samples] = z;
+				accel.samples++;
+
+				break;
+			}
+			case 0x40:
+				// skip frame
+				frame_len = 2;
+				break;
+			case 0x44:
+				// sensortime frame
+				frame_len = 4;
+				break;
+			case 0x48:
+				// fifo config frame
+				frame_len = 2;
+				break;
+			case 0x50:
+				// sample drop frame
+				frame_len = 2;
+				break;
+		}
+		p += frame_len;
+		fifo_fill_level -= frame_len;
+	}
+	_px4_accel.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
+					perf_event_count(_fifo_empty_perf) + perf_event_count(_fifo_overflow_perf));
+
+	if (accel.samples > 0) {
+		//PX4_WARN("accel.samples: %d", accel.samples);
+		_px4_accel.updateFIFO(accel);
+		return true;
+	}
+	return true;
+}
 } // namespace Bosch::BMI088::Accelerometer

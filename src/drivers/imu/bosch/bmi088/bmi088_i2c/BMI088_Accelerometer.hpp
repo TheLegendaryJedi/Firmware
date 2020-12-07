@@ -65,7 +65,7 @@ private:
 	// Transfer data
 	struct FIFOTransferBuffer {
 		uint8_t cmd{static_cast<uint8_t>(Register::FIFO_LENGTH_0)};
-		//uint8_t dummy{0};
+		uint8_t dummy{0};
 		uint8_t FIFO_LENGTH_0{0};
 		uint8_t FIFO_LENGTH_1{0};
 		FIFO::DATA f[FIFO_MAX_SAMPLES] {};
@@ -75,7 +75,7 @@ private:
 		FIFO::DATA f[FIFO_MAX_SAMPLES] {};
 	};
 	// ensure no struct padding
-	static_assert(sizeof(FIFOTransferBuffer) == (3 + FIFO_MAX_SAMPLES *sizeof(FIFO::DATA)));
+	static_assert(sizeof(FIFOTransferBuffer) == (4 + FIFO_MAX_SAMPLES *sizeof(FIFO::DATA)));
 
 	struct register_config_t {
 		Register reg;
@@ -114,6 +114,7 @@ private:
 	uint8_t CheckSensorErrReg();
 	bool SimpleFIFORead(const hrt_abstime &timestamp_sample);
 	bool NormalRead(const hrt_abstime &timestamp_sample);
+	bool FIFOReadTest(const hrt_abstime &timestamp_sample);
 
 	PX4Accelerometer _px4_accel;
 

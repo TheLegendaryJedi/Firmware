@@ -49,7 +49,7 @@ BMI088_Gyroscope::BMI088_Gyroscope(I2CSPIBusOption bus_option, int bus, uint32_t
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME"_gyro: DRDY missed");
 	}
 
-	ConfigureSampleRate(100);
+	ConfigureSampleRate(2000);
 }
 
 BMI088_Gyroscope::~BMI088_Gyroscope()
@@ -101,7 +101,7 @@ void BMI088_Gyroscope::RunImpl()
 	switch (_state) {
 
 	case STATE::SELFTEST:
-		SelfTest();
+		//SelfTest();
 		_state = STATE::RESET;
 		ScheduleDelayed(1_ms);
 		break;
@@ -170,89 +170,8 @@ void BMI088_Gyroscope::RunImpl()
 		break;
 
 	case STATE::FIFO_READ: {
-			const uint8_t FIFO_STATUS = RegisterRead(Register::FIFO_STATUS);
-
-			const uint8_t fifo_frame_counter = FIFO_STATUS & FIFO_STATUS_BIT::Fifo_frame_counter;
-
-			if (fifo_frame_counter > FIFO_MAX_SAMPLES) {
-				//FIFORead(now, fifo_frame_counter);
-				NormalRead(now);
-
-			} else if (fifo_frame_counter == 0) {
-				perf_count(_fifo_empty_perf);
-
-			} else if (fifo_frame_counter >= 1) {
-				//FIFORead(now, fifo_frame_counter);
-				NormalRead(now);
-			}
-
-
-			/*****************************************************************************/
-			// if (_data_ready_interrupt_enabled) {
-			// 	// scheduled from interrupt if _drdy_fifo_read_samples was set
-			// 	if (_drdy_fifo_read_samples.fetch_and(0) != _fifo_samples) {
-			// 		perf_count(_drdy_missed_perf);
-			// 	}
-
-			// 	// push backup schedule back
-			// 	ScheduleDelayed(_fifo_empty_interval_us * 2);
-			// }
-
-			// // always check current FIFO status/count
-			// bool success = false;
-			// const uint8_t FIFO_STATUS = RegisterRead(Register::FIFO_STATUS);
-
-
-			// if (FIFO_STATUS & FIFO_STATUS_BIT::Fifo_overrun) {
-			// 	//PX4_WARN("Fifo_overrun");
-			// 	FIFOReset();
-			// 	perf_count(_fifo_overflow_perf);
-
-			// } else {
-			// 	const uint8_t fifo_frame_counter = FIFO_STATUS & FIFO_STATUS_BIT::Fifo_frame_counter;
-
-			// 	if (fifo_frame_counter > FIFO_MAX_SAMPLES) {
-			// 		// not technically an overflow, but more samples than we expected or can publish
-			// 		FIFOReset();
-			// 		perf_count(_fifo_overflow_perf);
-
-			// 	} else if (fifo_frame_counter == 0) {
-			// 		perf_count(_fifo_empty_perf);
-
-			// 	} else if (fifo_frame_counter >= 1) {
-			// 		if (FIFORead(now, fifo_frame_counter)) {
-			// 			success = true;
-			// 			if (_failure_count > 0) {
-			// 				_failure_count--;
-			// 			}
-			// 		}
-			// 	}
-			// }
-
-			// if (!success) {
-			// 	_failure_count++;
-			// 	//PX4_WARN("!success _failure_count: %d", _failure_count);
-			// 	// full reset if things are failing consistently
-			// 	if (_failure_count > 10) {
-			// 		Reset();
-			// 		return;
-			// 	}
-			// }
-
-			// if (!success || hrt_elapsed_time(&_last_config_check_timestamp) > 100_ms) {
-			// 	// check configuration registers periodically or immediately following any failure
-			// 	if (RegisterCheck(_register_cfg[_checked_register])) {
-			// 		_last_config_check_timestamp = now;
-			// 		_checked_register = (_checked_register + 1) % size_register_cfg;
-
-			// 	} else {
-			// 		// register check failed, force reset
-			// 		perf_count(_bad_register_perf);
-			// 		Reset();
-			// 	}
-			// }
+			FIFOReadTest(now);
 		}
-
 		break;
 	}
 }
@@ -292,7 +211,7 @@ void BMI088_Gyroscope::ConfigureGyro()
 void BMI088_Gyroscope::ConfigureSampleRate(int sample_rate)
 {
 	if (sample_rate == 0) {
-		sample_rate = 100; // default to 1000 Hz
+		sample_rate = 2000; // default to 1000 Hz
 	}
 
 	// round down to nearest FIFO sample dt * SAMPLES_PER_TRANSFER
@@ -420,28 +339,20 @@ void BMI088_Gyroscope::RegisterSetAndClearBits(Register reg, uint8_t setbits, ui
 
 bool BMI088_Gyroscope::FIFORead(const hrt_abstime &timestamp_sample, uint8_t samples)
 {
-	//PX4_WARN("Samples: %d", samples);
-	samples = 10;
 	FIFOTransferBuffer buffer{};
-	size_t transfer_size = math::min(samples * sizeof(FIFO::DATA), (unsigned int)(10*6));
-	//PX4_WARN("transfer_size: %d", transfer_size);
-	int res = -1;
-	while(res < 0){
-		res = transfer((uint8_t *)&buffer, 1, (uint8_t *)&buffer, transfer_size);
-		transfer_size -= 1;
-
+	const size_t transfer_size = math::min(samples * sizeof(FIFO::DATA) + 1, FIFO::SIZE);
+	//PX4_WARN("Estimated transfer size: %d", transfer_size);
+	if (transfer((uint8_t *)&buffer, 1, (uint8_t *)&buffer, transfer_size) != PX4_OK) {
+		perf_count(_bad_transfer_perf);
+		return false;
 	}
 
-	//PX4_WARN("success transfer_size at: %d", transfer_size+1);
 	sensor_gyro_fifo_s gyro{};
 	gyro.timestamp_sample = timestamp_sample;
 	gyro.samples = samples;
 	gyro.dt = FIFO_SAMPLE_DT;
 
 	for (int i = 0; i < samples; i++) {
-		if(i > (int) sizeof(sensor_gyro_fifo_s::x[0])) {
-			break;
-		}
 		const FIFO::DATA &fifo_sample = buffer.f[i];
 
 		const int16_t gyro_x = combine(fifo_sample.RATE_X_MSB, fifo_sample.RATE_X_LSB);
@@ -453,10 +364,6 @@ bool BMI088_Gyroscope::FIFORead(const hrt_abstime &timestamp_sample, uint8_t sam
 		gyro.x[i] = gyro_x;
 		gyro.y[i] = (gyro_y == INT16_MIN) ? INT16_MAX : -gyro_y;
 		gyro.z[i] = (gyro_z == INT16_MIN) ? INT16_MAX : -gyro_z;
-
-		PX4_WARN("gyro.x[i]: %d", gyro.x[i]);
-		PX4_WARN("gyro.y[i]: %d", gyro.y[i]);
-		PX4_WARN("gyro.z[i]: %d", gyro.z[i]);
 	}
 
 	_px4_gyro.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
@@ -543,5 +450,58 @@ bool BMI088_Gyroscope::NormalRead(const hrt_abstime &timestamp_sample) {
 	_px4_gyro.update(timestamp_sample, x, y, z);
 
 	return true;
+}
+
+bool BMI088_Gyroscope::FIFOReadTest(const hrt_abstime &timestamp_sample)
+{
+	uint8_t n_frames;
+	sensor_gyro_fifo_s gyro{};
+	gyro.timestamp_sample = timestamp_sample;
+	gyro.samples = 0;
+	gyro.dt = FIFO_SAMPLE_DT;
+
+	uint8_t data_i[1] = {static_cast<uint8_t>(Register::FIFO_STATUS)};
+
+	transfer(&data_i[0], 1, &n_frames, 1);
+
+    	n_frames &= 0x7F;
+
+	// don't read more than 8 frames at a time
+	if (n_frames > 5) {
+		n_frames = 5;
+	}
+
+	if (n_frames == 0) {
+		return false;
+	}
+
+    	uint8_t data[6*n_frames];
+	data[0] = static_cast<uint8_t>(Register::FIFO_DATA);
+	if(transfer(&data[0], 1, &data[0], 6*n_frames) != PX4_OK) {
+		//PX4_WARN("transfer(&data[0], 1, &data[0], fifo_fill_level) != PX4_OK");
+		return false;
+	}
+	for (uint8_t i = 0; i < n_frames; i++) {
+		const uint8_t *d = &data[i*6];
+		int16_t xyz[3] {
+			int16_t(uint16_t(d[0] | d[1]<<8)),
+			int16_t(uint16_t(d[2] | d[3]<<8)),
+			int16_t(uint16_t(d[4] | d[5]<<8)) };
+
+		gyro.x[i] = xyz[0];
+		gyro.y[i] = (xyz[1] == INT16_MIN) ? INT16_MAX : -xyz[1];
+		gyro.z[i] = (xyz[2] == INT16_MIN) ? INT16_MAX : -xyz[2];
+		gyro.samples++;
+   	}
+	_px4_gyro.set_error_count(perf_event_count(_bad_register_perf) + perf_event_count(_bad_transfer_perf) +
+					perf_event_count(_fifo_empty_perf) + perf_event_count(_fifo_overflow_perf));
+
+	if (gyro.samples > 0) {
+		//PX4_WARN("accel.samples: %d", accel.samples);
+		_px4_gyro.updateFIFO(gyro);
+		return true;
+	}
+	return true;
+
 }
 } // namespace Bosch::BMI088::Gyroscope

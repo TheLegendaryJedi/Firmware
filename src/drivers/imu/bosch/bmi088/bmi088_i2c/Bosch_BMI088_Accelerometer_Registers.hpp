@@ -99,7 +99,6 @@ enum ACC_CONF_BIT : uint8_t {
 	acc_bwp_Normal = Bit7 | Bit5,        // Filter setting normal
 	// [7:4] acc_bwp
 	acc_bwp_osr_4 = Bit7,        // OSR4
-
 	// [3:0] acc_odr
 	acc_odr_1600   = Bit3 | Bit2,        // ODR 1600 Hz
 	// [3:0] acc_odr
@@ -159,7 +158,7 @@ enum ACC_PWR_CTRL_BIT : uint8_t {
 
 namespace FIFO
 {
-static constexpr size_t SIZE = 1024;
+
 
 // 1. Acceleration sensor data frame   - Frame length: 7 bytes (1 byte header + 6 bytes payload)
 // Payload: the next bytes contain the sensor data in the same order as defined in the register map (addresses 0x12 – 0x17).
@@ -177,6 +176,8 @@ struct DATA {
 	uint8_t ACC_Z_LSB;
 	uint8_t ACC_Z_MSB;
 };
+static constexpr size_t SIZE = 1024;
+//static constexpr size_t SIZE = sizeof(DATA) * 10;
 static_assert(sizeof(DATA) == 7);
 
 enum header : uint8_t {
