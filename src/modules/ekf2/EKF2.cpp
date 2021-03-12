@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2015-2020 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2015-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -265,6 +265,28 @@ void EKF2::Run()
 		}
 	}
 
+	if (_vehicle_command_sub.updated()) {
+		vehicle_command_s vehicle_command;
+
+		if (_vehicle_command_sub.update(&vehicle_command)) {
+			if (vehicle_command.command == vehicle_command_s::VEHICLE_CMD_SET_GPS_GLOBAL_ORIGIN) {
+				if (!_ekf.control_status_flags().in_air) {
+
+					uint64_t origin_time {};
+					double latitude = vehicle_command.param5;
+					double longitude = vehicle_command.param6;
+					float altitude = vehicle_command.param7;
+
+					_ekf.setEkfGlobalOrigin(latitude, longitude, altitude);
+
+					// Validate the ekf origin status.
+					_ekf.getEkfGlobalOrigin(origin_time, latitude, longitude, altitude);
+					PX4_INFO("New NED origin (LLA): %3.10f, %3.10f, %4.3f\n", latitude, longitude, static_cast<double>(altitude));
+				}
+			}
+		}
+	}
+
 	bool imu_updated = false;
 	imuSample imu_sample_new {};
 
@@ -450,6 +472,7 @@ void EKF2::Run()
 
 			// publish status/logging messages
 			PublishEkfDriftMetrics(now);
+			PublishEventFlags(now);
 			PublishStates(now);
 			PublishStatus(now);
 			PublishStatusFlags(now);
@@ -516,6 +539,66 @@ void EKF2::PublishEkfDriftMetrics(const hrt_abstime &timestamp)
 
 		_ekf_gps_drift_pub.publish(drift_data);
 	}
+}
+
+void EKF2::PublishEventFlags(const hrt_abstime &timestamp)
+{
+	// information events
+	uint32_t information_events = _ekf.information_event_status().value;
+	bool information_event_updated = false;
+
+	if (information_events != 0) {
+		information_event_updated = true;
+		_filter_information_event_changes++;
+	}
+
+	// warning events
+	uint32_t warning_events = _ekf.warning_event_status().value;
+	bool warning_event_updated = false;
+
+	if (warning_events != 0) {
+		warning_event_updated = true;
+		_filter_warning_event_changes++;
+	}
+
+	if (information_event_updated || warning_event_updated) {
+		estimator_event_flags_s event_flags{};
+		event_flags.timestamp_sample = timestamp;
+
+		event_flags.information_event_changes           = _filter_information_event_changes;
+		event_flags.gps_checks_passed                   = _ekf.information_event_flags().gps_checks_passed;
+		event_flags.reset_vel_to_gps                    = _ekf.information_event_flags().reset_vel_to_gps;
+		event_flags.reset_vel_to_flow                   = _ekf.information_event_flags().reset_vel_to_flow;
+		event_flags.reset_vel_to_vision                 = _ekf.information_event_flags().reset_vel_to_vision;
+		event_flags.reset_vel_to_zero                   = _ekf.information_event_flags().reset_vel_to_zero;
+		event_flags.reset_pos_to_last_known             = _ekf.information_event_flags().reset_pos_to_last_known;
+		event_flags.reset_pos_to_gps                    = _ekf.information_event_flags().reset_pos_to_gps;
+		event_flags.reset_pos_to_vision                 = _ekf.information_event_flags().reset_pos_to_vision;
+		event_flags.starting_gps_fusion                 = _ekf.information_event_flags().starting_gps_fusion;
+		event_flags.starting_vision_pos_fusion          = _ekf.information_event_flags().starting_vision_pos_fusion;
+		event_flags.starting_vision_vel_fusion          = _ekf.information_event_flags().starting_vision_vel_fusion;
+		event_flags.starting_vision_yaw_fusion          = _ekf.information_event_flags().starting_vision_yaw_fusion;
+		event_flags.yaw_aligned_to_imu_gps              = _ekf.information_event_flags().yaw_aligned_to_imu_gps;
+
+		event_flags.warning_event_changes               = _filter_warning_event_changes;
+		event_flags.gps_quality_poor                    = _ekf.warning_event_flags().gps_quality_poor;
+		event_flags.gps_fusion_timout                   = _ekf.warning_event_flags().gps_fusion_timout;
+		event_flags.gps_data_stopped                    = _ekf.warning_event_flags().gps_data_stopped;
+		event_flags.gps_data_stopped_using_alternate    = _ekf.warning_event_flags().gps_data_stopped_using_alternate;
+		event_flags.height_sensor_timeout               = _ekf.warning_event_flags().height_sensor_timeout;
+		event_flags.stopping_navigation                 = _ekf.warning_event_flags().stopping_mag_use;
+		event_flags.invalid_accel_bias_cov_reset        = _ekf.warning_event_flags().invalid_accel_bias_cov_reset;
+		event_flags.bad_yaw_using_gps_course            = _ekf.warning_event_flags().bad_yaw_using_gps_course;
+		event_flags.stopping_mag_use                    = _ekf.warning_event_flags().stopping_mag_use;
+		event_flags.vision_data_stopped                 = _ekf.warning_event_flags().vision_data_stopped;
+		event_flags.emergency_yaw_reset_mag_stopped     = _ekf.warning_event_flags().emergency_yaw_reset_mag_stopped;
+
+		event_flags.timestamp = _replay_mode ? timestamp : hrt_absolute_time();
+		_estimator_event_flags_pub.publish(event_flags);
+	}
+
+	_ekf.clear_information_events();
+	_ekf.clear_warning_events();
 }
 
 void EKF2::PublishGlobalPosition(const hrt_abstime &timestamp)

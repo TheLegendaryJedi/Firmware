@@ -37,13 +37,13 @@ px4_add_board(
 		imu/invensense/icm20602
 		imu/invensense/icm42688p
 		irlock
-		lights/blinkm
+		#lights/blinkm
 		lights/rgbled
 		lights/rgbled_ncp5623c
 		magnetometer # all available magnetometer drivers
 		optical_flow # all available optical flow drivers
 		#osd
-		pca9685
+		#pca9685
 		pca9685_pwm_out
 		power_monitor/ina226
 		#protocol_splitter
@@ -71,6 +71,7 @@ px4_add_board(
 		flight_mode_manager
 		fw_att_control
 		fw_pos_control_l1
+		gyro_fft
 		land_detector
 		landing_target_estimator
 		load_mon

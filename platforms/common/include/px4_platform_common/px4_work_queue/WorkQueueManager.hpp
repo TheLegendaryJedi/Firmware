@@ -48,7 +48,7 @@ struct wq_config_t {
 
 namespace wq_configurations
 {
-static constexpr wq_config_t rate_ctrl{"wq:rate_ctrl", 1888, 0}; // PX4 inner loop highest priority
+static constexpr wq_config_t rate_ctrl{"wq:rate_ctrl", 1920, 0}; // PX4 inner loop highest priority
 static constexpr wq_config_t ctrl_alloc{"wq:ctrl_alloc", 9500, 0}; // PX4 control allocation, same priority as rate_ctrl
 
 static constexpr wq_config_t SPI0{"wq:SPI0", 2336, -1};
@@ -75,7 +75,7 @@ static constexpr wq_config_t INS3{"wq:INS3", 6000, -17};
 
 static constexpr wq_config_t hp_default{"wq:hp_default", 1900, -18};
 
-static constexpr wq_config_t uavcan{"wq:uavcan", 2576, -19};
+static constexpr wq_config_t uavcan{"wq:uavcan", 3624, -19};
 
 static constexpr wq_config_t UART0{"wq:UART0", 1400, -21};
 static constexpr wq_config_t UART1{"wq:UART1", 1400, -22};

@@ -107,6 +107,7 @@ set(models
 	iris
 	iris_ctrlalloc
 	iris_dual_gps
+	iris_foggy_lidar
 	iris_irlock
 	iris_obs_avoid
 	iris_opt_flow
@@ -124,6 +125,7 @@ set(models
 	shell
 	solo
 	standard_vtol
+	standard_vtol_drop
 	tailsitter
 	techpod
 	tiltrotor

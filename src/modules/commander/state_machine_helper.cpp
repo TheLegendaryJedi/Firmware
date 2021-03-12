@@ -173,7 +173,7 @@ transition_result_t arming_state_transition(vehicle_status_s *status, const safe
 
 				//      Do not perform pre-arm checks if coming from in air restore
 				//      Allow if vehicle_status_s::HIL_STATE_ON
-				if (status->arming_state != vehicle_status_s::ARMING_STATE_IN_AIR_RESTORE && !hil_enabled) {
+				if (status->arming_state != vehicle_status_s::ARMING_STATE_IN_AIR_RESTORE) {
 
 					bool prearm_check_ret = true;
 
@@ -270,7 +270,6 @@ main_state_transition(const vehicle_status_s &status, const main_state_t new_mai
 	case commander_state_s::MAIN_STATE_MANUAL:
 	case commander_state_s::MAIN_STATE_STAB:
 	case commander_state_s::MAIN_STATE_ACRO:
-	case commander_state_s::MAIN_STATE_RATTITUDE:
 		ret = TRANSITION_CHANGED;
 		break;
 
@@ -431,7 +430,6 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 	switch (internal_state->main_state) {
 	case commander_state_s::MAIN_STATE_ACRO:
 	case commander_state_s::MAIN_STATE_MANUAL:
-	case commander_state_s::MAIN_STATE_RATTITUDE:
 	case commander_state_s::MAIN_STATE_STAB:
 	case commander_state_s::MAIN_STATE_ALTCTL:
 
@@ -449,10 +447,6 @@ bool set_nav_state(vehicle_status_s *status, actuator_armed_s *armed, commander_
 
 			case commander_state_s::MAIN_STATE_MANUAL:
 				status->nav_state = vehicle_status_s::NAVIGATION_STATE_MANUAL;
-				break;
-
-			case commander_state_s::MAIN_STATE_RATTITUDE:
-				status->nav_state = vehicle_status_s::NAVIGATION_STATE_RATTITUDE;
 				break;
 
 			case commander_state_s::MAIN_STATE_STAB:
@@ -905,7 +899,6 @@ void set_offboard_loss_nav_state(vehicle_status_s *status, actuator_armed_s *arm
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LAND;
 			return;
 		}
-
 	}
 
 	// If none of the above worked, try to mitigate
@@ -942,7 +935,13 @@ void set_offboard_loss_rc_nav_state(vehicle_status_s *status, actuator_armed_s *
 		return;
 
 	case offboard_loss_rc_actions_t::MANUAL_POSITION:
-		if (status_flags.condition_global_position_valid) {
+		if (status->vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING
+		    && status_flags.condition_local_position_valid) {
+
+			status->nav_state = vehicle_status_s::NAVIGATION_STATE_POSCTL;
+			return;
+
+		} else if (status_flags.condition_global_position_valid) {
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_POSCTL;
 			return;
 		}
@@ -978,7 +977,6 @@ void set_offboard_loss_rc_nav_state(vehicle_status_s *status, actuator_armed_s *
 			status->nav_state = vehicle_status_s::NAVIGATION_STATE_AUTO_LAND;
 			return;
 		}
-
 	}
 
 	// If none of the above worked, try to mitigate

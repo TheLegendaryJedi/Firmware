@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2019 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -132,8 +132,9 @@ static int power_button_state_notification_cb(board_power_button_state_notificat
 #endif // BOARD_HAS_POWER_CONTROL
 
 #ifndef CONSTRAINED_FLASH
-static bool send_vehicle_command(uint16_t cmd, float param1 = NAN, float param2 = NAN, float param3 = NAN,
-				 float param4 = NAN, float param5 = NAN, float param6 = NAN, float param7 = NAN)
+static bool send_vehicle_command(const uint32_t cmd, const float param1 = NAN, const float param2 = NAN,
+				 const float param3 = NAN,  const float param4 = NAN, const double param5 = static_cast<double>(NAN),
+				 const double param6 = static_cast<double>(NAN), const float param7 = NAN)
 {
 	vehicle_command_s vcmd{};
 
@@ -174,7 +175,7 @@ int Commander::custom_command(int argc, char *argv[])
 		if (argc > 1) {
 			if (!strcmp(argv[1], "gyro")) {
 				// gyro calibration: param1 = 1
-				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f);
+				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 1.f, 0.f, 0.f, 0.f, 0.0, 0.0, 0.f);
 
 			} else if (!strcmp(argv[1], "mag")) {
 				if (argc > 2 && (strcmp(argv[2], "quick") == 0)) {
@@ -183,30 +184,30 @@ int Commander::custom_command(int argc, char *argv[])
 
 				} else {
 					// magnetometer calibration: param2 = 1
-					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 0.f);
+					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 1.f, 0.f, 0.f, 0.0, 0.0, 0.f);
 				}
 
 			} else if (!strcmp(argv[1], "accel")) {
 				if (argc > 2 && (strcmp(argv[2], "quick") == 0)) {
 					// accelerometer quick calibration: param5 = 3
-					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 4.f, 0.f, 0.f);
+					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 4.0, 0.0, 0.f);
 
 				} else {
 					// accelerometer calibration: param5 = 1
-					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f);
+					send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 1.0, 0.0, 0.f);
 				}
 
 			} else if (!strcmp(argv[1], "level")) {
 				// board level calibration: param5 = 2
-				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 2.f, 0.f, 0.f);
+				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 2.0, 0.0, 0.f);
 
 			} else if (!strcmp(argv[1], "airspeed")) {
 				// airspeed calibration: param6 = 2
-				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 0.f, 2.f, 0.f);
+				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 0.0, 2.0, 0.f);
 
 			} else if (!strcmp(argv[1], "esc")) {
 				// ESC calibration: param7 = 1
-				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 0.f, 0.f, 1.f);
+				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_PREFLIGHT_CALIBRATION, 0.f, 0.f, 0.f, 0.f, 0.0, 0.0, 1.f);
 
 			} else {
 				PX4_ERR("argument %s unsupported.", argv[1]);
@@ -320,9 +321,6 @@ int Commander::custom_command(int argc, char *argv[])
 			} else if (!strcmp(argv[1], "stabilized")) {
 				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1, PX4_CUSTOM_MAIN_MODE_STABILIZED);
 
-			} else if (!strcmp(argv[1], "rattitude")) {
-				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1, PX4_CUSTOM_MAIN_MODE_RATTITUDE);
-
 			} else if (!strcmp(argv[1], "auto:takeoff")) {
 				send_vehicle_command(vehicle_command_s::VEHICLE_CMD_DO_SET_MODE, 1, PX4_CUSTOM_MAIN_MODE_AUTO,
 						     PX4_CUSTOM_SUB_MODE_AUTO_TAKEOFF);
@@ -358,6 +356,25 @@ int Commander::custom_command(int argc, char *argv[])
 
 		return (ret ? 0 : 1);
 	}
+
+	if (!strcmp(argv[0], "set_ekf_origin")) {
+		if (argc > 3) {
+
+			double latitude  = atof(argv[1]);
+			double longitude = atof(argv[2]);
+			float  altitude  = atof(argv[3]);
+
+			// Set the ekf NED origin global coordinates.
+			bool ret = send_vehicle_command(vehicle_command_s::VEHICLE_CMD_SET_GPS_GLOBAL_ORIGIN,
+							0.f, 0.f, 0.0, 0.0, latitude, longitude, altitude);
+			return (ret ? 0 : 1);
+
+		} else {
+			PX4_ERR("missing argument");
+			return 0;
+		}
+	}
+
 
 #endif
 
@@ -644,10 +661,6 @@ Commander::handle_command(const vehicle_command_s &cmd)
 					/* ACRO */
 					main_ret = main_state_transition(_status, commander_state_s::MAIN_STATE_ACRO, _status_flags, &_internal_state);
 
-				} else if (custom_main_mode == PX4_CUSTOM_MAIN_MODE_RATTITUDE) {
-					/* RATTITUDE */
-					main_ret = main_state_transition(_status, commander_state_s::MAIN_STATE_RATTITUDE, _status_flags, &_internal_state);
-
 				} else if (custom_main_mode == PX4_CUSTOM_MAIN_MODE_STABILIZED) {
 					/* STABILIZED */
 					main_ret = main_state_transition(_status, commander_state_s::MAIN_STATE_STAB, _status_flags, &_internal_state);
@@ -853,41 +866,6 @@ Commander::handle_command(const vehicle_command_s &cmd)
 				} else {
 					cmd_result = vehicle_command_s::VEHICLE_CMD_RESULT_DENIED;
 				}
-			}
-		}
-		break;
-
-	case vehicle_command_s::VEHICLE_CMD_NAV_GUIDED_ENABLE: {
-			transition_result_t res = TRANSITION_DENIED;
-
-			if (_internal_state.main_state != commander_state_s::MAIN_STATE_OFFBOARD) {
-				_main_state_pre_offboard = _internal_state.main_state;
-			}
-
-			if (cmd.param1 > 0.5f) {
-				res = main_state_transition(_status, commander_state_s::MAIN_STATE_OFFBOARD, _status_flags, &_internal_state);
-
-				if (res == TRANSITION_DENIED) {
-					print_reject_mode("OFFBOARD");
-					_status_flags.offboard_control_set_by_command = false;
-
-				} else {
-					/* Set flag that offboard was set via command, main state is not overridden by rc */
-					_status_flags.offboard_control_set_by_command = true;
-				}
-
-			} else {
-				/* If the mavlink command is used to enable or disable offboard control:
-				 * switch back to previous mode when disabling */
-				res = main_state_transition(_status, _main_state_pre_offboard, _status_flags, &_internal_state);
-				_status_flags.offboard_control_set_by_command = false;
-			}
-
-			if (res == TRANSITION_DENIED) {
-				cmd_result = vehicle_command_s::VEHICLE_CMD_RESULT_TEMPORARILY_REJECTED;
-
-			} else {
-				cmd_result = vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED;
 			}
 		}
 		break;
@@ -1172,9 +1150,9 @@ Commander::handle_command(const vehicle_command_s &cmd)
 
 			} else {
 				answer_command(cmd, vehicle_command_s::VEHICLE_CMD_RESULT_ACCEPTED);
-				// parameter 1: Yaw in degrees
-				// parameter 3: Latitude
-				// parameter 4: Longitude
+				// parameter 1: Heading   (degrees)
+				// parameter 3: Latitude  (degrees)
+				// parameter 4: Longitude (degrees)
 
 				// assume vehicle pointing north (0 degrees) if heading isn't specified
 				const float heading_radians = PX4_ISFINITE(cmd.param1) ? math::radians(roundf(cmd.param1)) : 0.f;
@@ -1258,6 +1236,7 @@ Commander::handle_command(const vehicle_command_s &cmd)
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_WPNEXT_OFFSET:
 	case vehicle_command_s::VEHICLE_CMD_DO_SET_ROI_NONE:
 	case vehicle_command_s::VEHICLE_CMD_INJECT_FAILURE:
+	case vehicle_command_s::VEHICLE_CMD_SET_GPS_GLOBAL_ORIGIN:
 		/* ignore commands that are handled by other parts of the system */
 		break;
 
@@ -1290,6 +1269,7 @@ Commander::handle_command_motor_test(const vehicle_command_s &cmd)
 	test_motor_s test_motor{};
 	test_motor.timestamp = hrt_absolute_time();
 	test_motor.motor_number = (int)(cmd.param1 + 0.5f) - 1;
+
 	int throttle_type = (int)(cmd.param2 + 0.5f);
 
 	if (throttle_type != 0) { // 0: MOTOR_TEST_THROTTLE_PERCENT
@@ -1644,7 +1624,7 @@ Commander::run()
 				}
 			}
 
-			_offboard_available.set_hysteresis_time_from(true, _param_com_of_loss_t.get());
+			_offboard_available.set_hysteresis_time_from(true, _param_com_of_loss_t.get() * 1e6f);
 
 			param_init_forced = false;
 		}
@@ -2316,7 +2296,7 @@ Commander::run()
 		}
 
 		/* Check for failure detector status */
-		if (_failure_detector.update(_status)) {
+		if (_failure_detector.update(_status, _vehicle_control_mode)) {
 			_status.failure_detector_status = _failure_detector.getStatus();
 			_status_changed = true;
 
@@ -2803,7 +2783,6 @@ Commander::set_main_state_rc()
 		|| (_last_manual_control_switches.return_switch != _manual_control_switches.return_switch)
 		|| (_last_manual_control_switches.mode_switch != _manual_control_switches.mode_switch)
 		|| (_last_manual_control_switches.acro_switch != _manual_control_switches.acro_switch)
-		|| (_last_manual_control_switches.rattitude_switch != _manual_control_switches.rattitude_switch)
 		|| (_last_manual_control_switches.posctl_switch != _manual_control_switches.posctl_switch)
 		|| (_last_manual_control_switches.loiter_switch != _manual_control_switches.loiter_switch)
 		|| (_last_manual_control_switches.mode_slot != _manual_control_switches.mode_slot)
@@ -3057,16 +3036,6 @@ Commander::set_main_state_rc()
 						res = main_state_transition(_status, commander_state_s::MAIN_STATE_MANUAL, _status_flags, &_internal_state);
 					}
 
-				} else if (_manual_control_switches.rattitude_switch == manual_control_switches_s::SWITCH_POS_ON) {
-					/* Similar to acro transitions for multirotors.  FW aircraft don't need a
-					 * rattitude mode.*/
-					if (_status.vehicle_type == vehicle_status_s::VEHICLE_TYPE_ROTARY_WING) {
-						res = main_state_transition(_status, commander_state_s::MAIN_STATE_RATTITUDE, _status_flags, &_internal_state);
-
-					} else {
-						res = main_state_transition(_status, commander_state_s::MAIN_STATE_STAB, _status_flags, &_internal_state);
-					}
-
 				} else {
 					res = main_state_transition(_status, commander_state_s::MAIN_STATE_MANUAL, _status_flags, &_internal_state);
 				}
@@ -3081,9 +3050,6 @@ Commander::set_main_state_rc()
 
 				} else if (_manual_control_switches.acro_switch == manual_control_switches_s::SWITCH_POS_ON) {
 					res = main_state_transition(_status, commander_state_s::MAIN_STATE_ACRO, _status_flags, &_internal_state);
-
-				} else if (_manual_control_switches.rattitude_switch == manual_control_switches_s::SWITCH_POS_ON) {
-					res = main_state_transition(_status, commander_state_s::MAIN_STATE_RATTITUDE, _status_flags, &_internal_state);
 
 				} else if (_manual_control_switches.stab_switch == manual_control_switches_s::SWITCH_POS_ON) {
 					res = main_state_transition(_status, commander_state_s::MAIN_STATE_STAB, _status_flags, &_internal_state);
@@ -3264,13 +3230,6 @@ Commander::update_control_mode()
 		_vehicle_control_mode.flag_control_attitude_enabled = true;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_RATTITUDE:
-		_vehicle_control_mode.flag_control_manual_enabled = true;
-		_vehicle_control_mode.flag_control_rates_enabled = true;
-		_vehicle_control_mode.flag_control_attitude_enabled = true;
-		_vehicle_control_mode.flag_control_rattitude_enabled = true;
-		break;
-
 	case vehicle_status_s::NAVIGATION_STATE_ALTCTL:
 		_vehicle_control_mode.flag_control_manual_enabled = true;
 		_vehicle_control_mode.flag_control_rates_enabled = true;
@@ -3333,55 +3292,39 @@ Commander::update_control_mode()
 		_vehicle_control_mode.flag_control_termination_enabled = true;
 		break;
 
-	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD: {
-			_vehicle_control_mode.flag_control_offboard_enabled = true;
+	case vehicle_status_s::NAVIGATION_STATE_OFFBOARD:
+		_vehicle_control_mode.flag_control_offboard_enabled = true;
 
-			const offboard_control_mode_s &offboard = _offboard_control_mode_sub.get();
+		if (_offboard_control_mode_sub.get().position) {
+			_vehicle_control_mode.flag_control_position_enabled = true;
+			_vehicle_control_mode.flag_control_velocity_enabled = true;
+			_vehicle_control_mode.flag_control_altitude_enabled = true;
+			_vehicle_control_mode.flag_control_climb_rate_enabled = true;
+			_vehicle_control_mode.flag_control_acceleration_enabled = true;
+			_vehicle_control_mode.flag_control_rates_enabled = true;
+			_vehicle_control_mode.flag_control_attitude_enabled = true;
 
-			if (!offboard.ignore_acceleration_force) {
-				// OFFBOARD acceleration
-				_vehicle_control_mode.flag_control_acceleration_enabled = true;
-				_vehicle_control_mode.flag_control_attitude_enabled = true;
-				_vehicle_control_mode.flag_control_rates_enabled = true;
+		} else if (_offboard_control_mode_sub.get().velocity) {
+			_vehicle_control_mode.flag_control_velocity_enabled = true;
+			_vehicle_control_mode.flag_control_altitude_enabled = true;
+			_vehicle_control_mode.flag_control_climb_rate_enabled = true;
+			_vehicle_control_mode.flag_control_acceleration_enabled = true;
+			_vehicle_control_mode.flag_control_rates_enabled = true;
+			_vehicle_control_mode.flag_control_attitude_enabled = true;
 
-			} else if (!offboard.ignore_position) {
-				// OFFBOARD position
-				_vehicle_control_mode.flag_control_position_enabled = true;
-				_vehicle_control_mode.flag_control_velocity_enabled = true;
-				_vehicle_control_mode.flag_control_altitude_enabled = true;
-				_vehicle_control_mode.flag_control_climb_rate_enabled = true;
-				_vehicle_control_mode.flag_control_attitude_enabled = true;
-				_vehicle_control_mode.flag_control_rates_enabled = true;
+		} else if (_offboard_control_mode_sub.get().acceleration) {
+			_vehicle_control_mode.flag_control_acceleration_enabled = true;
+			_vehicle_control_mode.flag_control_rates_enabled = true;
+			_vehicle_control_mode.flag_control_attitude_enabled = true;
 
-			} else if (!offboard.ignore_velocity) {
-				// OFFBOARD velocity
-				_vehicle_control_mode.flag_control_velocity_enabled = true;
-				_vehicle_control_mode.flag_control_altitude_enabled = true;
-				_vehicle_control_mode.flag_control_climb_rate_enabled = true;
-				_vehicle_control_mode.flag_control_attitude_enabled = true;
-				_vehicle_control_mode.flag_control_rates_enabled = true;
+		} else if (_offboard_control_mode_sub.get().attitude) {
+			_vehicle_control_mode.flag_control_rates_enabled = true;
+			_vehicle_control_mode.flag_control_attitude_enabled = true;
 
-			} else if (!offboard.ignore_attitude) {
-				// OFFBOARD attitude
-				_vehicle_control_mode.flag_control_attitude_enabled = true;
-				_vehicle_control_mode.flag_control_rates_enabled = true;
-
-			} else if (!offboard.ignore_bodyrate_x || !offboard.ignore_bodyrate_y || !offboard.ignore_bodyrate_z) {
-				// OFFBOARD rate
-				_vehicle_control_mode.flag_control_rates_enabled = true;
-			}
-
-			// TO-DO: Add support for other modes than yawrate control
-			_vehicle_control_mode.flag_control_yawrate_override_enabled = offboard.ignore_bodyrate_x && offboard.ignore_bodyrate_y
-					&& !offboard.ignore_bodyrate_z && !offboard.ignore_attitude;
-
-			// VTOL transition override
-			if (_status.in_transition_mode) {
-				_vehicle_control_mode.flag_control_acceleration_enabled = false;
-				_vehicle_control_mode.flag_control_velocity_enabled = false;
-				_vehicle_control_mode.flag_control_position_enabled = false;
-			}
+		} else if (_offboard_control_mode_sub.get().body_rate) {
+			_vehicle_control_mode.flag_control_rates_enabled = true;
 		}
+
 		break;
 
 	case vehicle_status_s::NAVIGATION_STATE_ORBIT:
@@ -3389,13 +3332,10 @@ Commander::update_control_mode()
 		_vehicle_control_mode.flag_control_auto_enabled = false;
 		_vehicle_control_mode.flag_control_rates_enabled = true;
 		_vehicle_control_mode.flag_control_attitude_enabled = true;
-		_vehicle_control_mode.flag_control_rattitude_enabled = false;
 		_vehicle_control_mode.flag_control_altitude_enabled = true;
 		_vehicle_control_mode.flag_control_climb_rate_enabled = true;
 		_vehicle_control_mode.flag_control_position_enabled = !_status.in_transition_mode;
 		_vehicle_control_mode.flag_control_velocity_enabled = !_status.in_transition_mode;
-		_vehicle_control_mode.flag_control_acceleration_enabled = false;
-		_vehicle_control_mode.flag_control_termination_enabled = false;
 		break;
 
 	default:
@@ -3950,8 +3890,10 @@ void Commander::UpdateEstimateValidity()
 	float lpos_eph_threshold_adj = _param_com_pos_fs_eph.get();
 
 	// relax local position eph threshold in operator controlled position mode
-	// TODO: update to vehicle_control_mode (when available) - flag_control_manual_enabled && flag_control_position_enabled
-	if (_status.nav_state == vehicle_status_s::NAVIGATION_STATE_POSCTL) {
+	if (_internal_state.main_state == commander_state_s::MAIN_STATE_POSCTL &&
+	    ((_status.nav_state == vehicle_status_s::NAVIGATION_STATE_ALTCTL)
+	     || (_status.nav_state == vehicle_status_s::NAVIGATION_STATE_POSCTL))) {
+
 		// Set the allowable position uncertainty based on combination of flight and estimator state
 		// When we are in a operator demanded position control mode and are solely reliant on optical flow, do not check position error because it will gradually increase throughout flight and the operator will compensate for the drift
 		const bool reliant_on_opt_flow = ((status.control_mode_flags & (1 << estimator_status_s::CS_OPT_FLOW))
@@ -3979,30 +3921,41 @@ void Commander::UpdateEstimateValidity()
 void
 Commander::offboard_control_update()
 {
-	const offboard_control_mode_s &offboard_control_mode = _offboard_control_mode_sub.get();
+	bool offboard_available = false;
 
 	if (_offboard_control_mode_sub.updated()) {
-		const offboard_control_mode_s old = offboard_control_mode;
+		const offboard_control_mode_s old = _offboard_control_mode_sub.get();
 
 		if (_offboard_control_mode_sub.update()) {
-			if (old.ignore_thrust != offboard_control_mode.ignore_thrust ||
-			    old.ignore_attitude != offboard_control_mode.ignore_attitude ||
-			    old.ignore_bodyrate_x != offboard_control_mode.ignore_bodyrate_x ||
-			    old.ignore_bodyrate_y != offboard_control_mode.ignore_bodyrate_y ||
-			    old.ignore_bodyrate_z != offboard_control_mode.ignore_bodyrate_z ||
-			    old.ignore_position != offboard_control_mode.ignore_position ||
-			    old.ignore_velocity != offboard_control_mode.ignore_velocity ||
-			    old.ignore_acceleration_force != offboard_control_mode.ignore_acceleration_force ||
-			    old.ignore_alt_hold != offboard_control_mode.ignore_alt_hold) {
+			const offboard_control_mode_s &ocm = _offboard_control_mode_sub.get();
+
+			if (old.position != ocm.position ||
+			    old.velocity != ocm.velocity ||
+			    old.acceleration != ocm.acceleration ||
+			    old.attitude != ocm.attitude ||
+			    old.body_rate != ocm.body_rate) {
 
 				_status_changed = true;
+			}
+
+			if (ocm.position || ocm.velocity || ocm.acceleration || ocm.attitude || ocm.body_rate) {
+				offboard_available = true;
 			}
 		}
 	}
 
-	_offboard_available.set_state_and_update(
-		hrt_elapsed_time(&offboard_control_mode.timestamp) < _param_com_of_loss_t.get() * 1e6f,
-		hrt_absolute_time());
+	if (_offboard_control_mode_sub.get().position && !_status_flags.condition_local_position_valid) {
+		offboard_available = false;
+
+	} else if (_offboard_control_mode_sub.get().velocity && !_status_flags.condition_local_velocity_valid) {
+		offboard_available = false;
+
+	} else if (_offboard_control_mode_sub.get().acceleration && !_status_flags.condition_local_velocity_valid) {
+		// OFFBOARD acceleration handled by position controller
+		offboard_available = false;
+	}
+
+	_offboard_available.set_state_and_update(offboard_available, hrt_absolute_time());
 
 	const bool offboard_lost = !_offboard_available.get_state();
 
@@ -4075,10 +4028,13 @@ The commander module contains the state machine for mode switching and failsafe 
 	PRINT_MODULE_USAGE_COMMAND("land");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("transition", "VTOL transition");
 	PRINT_MODULE_USAGE_COMMAND_DESCR("mode", "Change flight mode");
-	PRINT_MODULE_USAGE_ARG("manual|acro|offboard|stabilized|rattitude|altctl|posctl|auto:mission|auto:loiter|auto:rtl|auto:takeoff|auto:land|auto:precland",
+	PRINT_MODULE_USAGE_ARG("manual|acro|offboard|stabilized|altctl|posctl|auto:mission|auto:loiter|auto:rtl|auto:takeoff|auto:land|auto:precland",
 			"Flight mode", false);
 	PRINT_MODULE_USAGE_COMMAND("lockdown");
 	PRINT_MODULE_USAGE_ARG("off", "Turn lockdown off", true);
+	PRINT_MODULE_USAGE_COMMAND("set_ekf_origin");
+	PRINT_MODULE_USAGE_ARG("lat, lon, alt", "Origin Latitude, Longitude, Altitude", false);
+	PRINT_MODULE_USAGE_COMMAND_DESCR("lat|lon|alt", "Origin latitude longitude altitude");
 #endif
 	PRINT_MODULE_USAGE_DEFAULT_COMMANDS();
 

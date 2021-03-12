@@ -292,7 +292,7 @@ void MulticopterPositionControl::Run()
 
 		PositionControlStates states{set_vehicle_states(local_pos)};
 
-		if (_control_mode.flag_control_climb_rate_enabled) {
+		if (_control_mode.flag_control_acceleration_enabled || _control_mode.flag_control_climb_rate_enabled) {
 
 			_trajectory_setpoint_sub.update(&_setpoint);
 
@@ -328,6 +328,36 @@ void MulticopterPositionControl::Run()
 			// TODO: this should get obsolete once the takeoff limiting moves into the flight tasks
 			if (!PX4_ISFINITE(_vehicle_constraints.speed_up) || (_vehicle_constraints.speed_up > _param_mpc_z_vel_max_up.get())) {
 				_vehicle_constraints.speed_up = _param_mpc_z_vel_max_up.get();
+			}
+
+			if (_control_mode.flag_control_offboard_enabled) {
+
+				bool want_takeoff = _control_mode.flag_armed && _vehicle_land_detected.landed
+						    && hrt_elapsed_time(&_setpoint.timestamp) < 1_s;
+
+				if (want_takeoff && PX4_ISFINITE(_setpoint.z)
+				    && (_setpoint.z < states.position(2))) {
+
+					_vehicle_constraints.want_takeoff = true;
+
+				} else if (want_takeoff && PX4_ISFINITE(_setpoint.vz)
+					   && (_setpoint.vz < 0.f)) {
+
+					_vehicle_constraints.want_takeoff = true;
+
+				} else if (want_takeoff && PX4_ISFINITE(_setpoint.acceleration[2])
+					   && (_setpoint.acceleration[2] < 0.f)) {
+
+					_vehicle_constraints.want_takeoff = true;
+
+				} else {
+					_vehicle_constraints.want_takeoff = false;
+				}
+
+				// override with defaults
+				_vehicle_constraints.speed_xy = _param_mpc_xy_vel_max.get();
+				_vehicle_constraints.speed_up = _param_mpc_z_vel_max_up.get();
+				_vehicle_constraints.speed_down = _param_mpc_z_vel_max_dn.get();
 			}
 
 			// handle smooth takeoff
@@ -398,12 +428,14 @@ void MulticopterPositionControl::Run()
 					_last_warn = time_stamp_now;
 				}
 
-				failsafe(time_stamp_now, _setpoint, states, !was_in_failsafe);
+				vehicle_local_position_setpoint_s failsafe_setpoint{};
+
+				failsafe(time_stamp_now, failsafe_setpoint, states, !was_in_failsafe);
 
 				// reset constraints
 				_vehicle_constraints = {0, NAN, NAN, NAN, false, {}};
 
-				_control.setInputSetpoint(_setpoint);
+				_control.setInputSetpoint(failsafe_setpoint);
 				_control.setVelocityLimits(_param_mpc_xy_vel_max.get(), _param_mpc_z_vel_max_up.get(), _param_mpc_z_vel_max_dn.get());
 				_control.update(dt);
 			}

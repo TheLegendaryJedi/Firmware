@@ -62,6 +62,7 @@ px4_add_board(
 		flight_mode_manager
 		fw_att_control
 		fw_pos_control_l1
+		gyro_fft
 		land_detector
 		landing_target_estimator
 		load_mon
@@ -81,7 +82,7 @@ px4_add_board(
 		vmount
 		vtol_att_control
 	SYSTEMCMDS
-		bl_update
+		#bl_update
 		#dmesg
 		dumpfile
 		esc_calib
