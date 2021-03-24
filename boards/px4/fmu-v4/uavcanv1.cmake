@@ -29,8 +29,6 @@ px4_add_board(
 		heater
 		#imu # all available imu drivers
 		imu/analog_devices/adis16448
-		imu/adis16477
-		imu/adis16497
 		imu/invensense/icm20602
 		imu/invensense/icm20608g
 		imu/invensense/icm40609d
@@ -52,7 +50,6 @@ px4_add_board(
 		rc_input
 		roboclaw
 		safety_button
-		tap_esc
 		telemetry # all available telemetry drivers
 		test_ppm
 		tone_alarm
@@ -71,6 +68,7 @@ px4_add_board(
 		flight_mode_manager
 		fw_att_control
 		fw_pos_control_l1
+		gyro_calibration
 		gyro_fft
 		land_detector
 		landing_target_estimator
@@ -126,7 +124,6 @@ px4_add_board(
 		fake_gyro
 		fake_magnetometer
 		fixedwing_control # Tutorial code from https://px4.io/dev/example_fixedwing_control
-		gyro_fft
 		hello
 		hwtest # Hardware test
 		#matlab_csv_serial

@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2021 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2020 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,52 +32,37 @@
  ****************************************************************************/
 
 /**
- * @file ghst_telemetry.cpp
- *
- * IRC Ghost (Immersion RC Ghost) telemetry.
- *
- * @author Igor Misic <igy1000mb@gmail.com>
- * @author Juraj Ciberlin <jciberlin1@gmail.com>
+ * @author Dmitry Ponomarev <ponomarevda96@gmail.com>
  */
 
 #pragma once
 
-#include <uORB/Subscription.hpp>
-#include <uORB/topics/battery_status.h>
-#include <drivers/drv_hrt.h>
+#include "sensor_bridge.hpp"
 
-using namespace time_literals;
+#include <uavcan/equipment/ahrs/RawIMU.hpp>
 
-/**
- * High-level class that handles sending of GHST telemetry data
- */
-class GHSTTelemetry
+class UavcanGyroBridge : public UavcanSensorBridgeBase
 {
 public:
-	/**
-	 * @param uart_fd file descriptor for the UART to use. It is expected to be configured
-	 * already.
-	 */
-	GHSTTelemetry(int uart_fd);
+	static const char *const NAME;
 
-	~GHSTTelemetry() = default;
+	UavcanGyroBridge(uavcan::INode &node);
 
-	/**
-	 * Send telemetry data. Call this regularly (i.e. at 100Hz), it will automatically
-	 * limit the sending rate.
-	 * @return true if new data sent
-	 */
-	bool update(const hrt_abstime &now);
+	const char *get_name() const override { return NAME; }
+
+	int init() override;
 
 private:
-	bool send_battery_status();
 
-	uORB::Subscription _battery_status_sub{ORB_ID(battery_status)};
+	void imu_sub_cb(const uavcan::ReceivedDataStructure<uavcan::equipment::ahrs::RawIMU> &msg);
 
-	hrt_abstime _last_update{0};
+	int init_driver(uavcan_bridge::Channel *channel) override;
 
-	static constexpr int num_data_types{1}; // number of different telemetry data types
-	int _next_type{0};
+	typedef uavcan::MethodBinder < UavcanGyroBridge *,
+		void (UavcanGyroBridge::*)
+		(const uavcan::ReceivedDataStructure<uavcan::equipment::ahrs::RawIMU> &) >
+		ImuCbBinder;
 
-	int _uart_fd;
+	uavcan::Subscriber<uavcan::equipment::ahrs::RawIMU, ImuCbBinder> _sub_imu_data;
+
 };
