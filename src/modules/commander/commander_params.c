@@ -292,23 +292,26 @@ PARAM_DEFINE_FLOAT(COM_DISARM_LAND, 2.0f);
  * A non-zero, positive value specifies the time after arming, in seconds, within which the
  * vehicle must take off (after which it will automatically disarm).
  *
+ * This is set to 25 seconds to ensure a system will not disarm if the pilot is not immediately
+ * taking off, but not so long that a system is completely forgotten about.
+ *
  * A zero or negative value means that automatic disarming triggered by a pre-takeoff timeout is disabled.
  *
  * @group Commander
  * @unit s
  * @decimal 2
  */
-PARAM_DEFINE_FLOAT(COM_DISARM_PRFLT, 10.0f);
+PARAM_DEFINE_FLOAT(COM_DISARM_PRFLT, 25.0f);
 
 
 /**
  * Allow arming without GPS
  *
- * The default allows to arm the vehicle without GPS signal.
+ * The default allows the vehicle to arm without GPS signal.
  *
  * @group Commander
- * @value 0 Allow arming without GPS
- * @value 1 Require GPS lock to arm
+ * @value 0 Require GPS lock to arm
+ * @value 1 Allow arming without GPS
  */
 PARAM_DEFINE_INT32(COM_ARM_WO_GPS, 1);
 
@@ -387,6 +390,17 @@ PARAM_DEFINE_INT32(COM_OBL_ACT, 0);
  * @group Commander
  */
 PARAM_DEFINE_INT32(COM_OBL_RC_ACT, 0);
+
+/**
+ * Time-out to wait when onboard computer connection is lost before warning about loss connection.
+ *
+ * @group Commander
+ * @unit s
+ * @min 0
+ * @max 60
+ * @increment 0.01
+ */
+PARAM_DEFINE_FLOAT(COM_OBC_LOSS_T, 5.0f);
 
 /**
  * First flightmode slot (1000-1160)
@@ -908,7 +922,7 @@ PARAM_DEFINE_INT32(COM_ARM_CHK_ESCS, 1);
  *
  * @group Commander
  */
-PARAM_DEFINE_INT32(COM_PREARM_MODE, 1);
+PARAM_DEFINE_INT32(COM_PREARM_MODE, 0);
 
 /**
  * Enable Motor Testing

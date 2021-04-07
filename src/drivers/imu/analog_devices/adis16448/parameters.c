@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2012-2015 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,39 +32,13 @@
  ****************************************************************************/
 
 /**
- * @file drv_blinkm.h
+ * Analog Devices ADIS16448 IMU (external SPI)
  *
- * BlinkM driver API
- *
- * This could probably become a more generalised API for multi-colour LED
- * driver systems, or be merged with the generic LED driver.
- */
-
-#pragma once
-
-#include <px4_platform_common/defines.h>
-#include <stdint.h>
-#include <sys/ioctl.h>
-
-#define BLINKM0_DEVICE_PATH	"/dev/blinkm0"
-
-/*
- * ioctl() definitions
- */
-
-#define _BLINKMIOCBASE		(0x2900)
-#define _BLINKMIOC(_n)		(_PX4_IOC(_BLINKMIOCBASE, _n))
-
-/** play the named script in *(char *)arg, repeating forever */
-#define BLINKM_PLAY_SCRIPT_NAMED	_BLINKMIOC(1)
-
-/** play the numbered script in (arg), repeating forever */
-#define BLINKM_PLAY_SCRIPT		_BLINKMIOC(2)
-
-/**
- * Set the user script; (arg) is a pointer to an array of script lines,
- * where each line is an array of four bytes giving <duration>, <command>, arg[0-2]
- *
- * The script is terminated by a zero command.
- */
-#define BLINKM_SET_USER_SCRIPT		_BLINKMIOC(3)
+ * @reboot_required true
+ * @min 0
+ * @max 1
+ * @group Sensors
+ * @value 0 Disabled
+ * @value 1 Enabled
+  */
+PARAM_DEFINE_INT32(SENS_EN_ADIS164X, 0);

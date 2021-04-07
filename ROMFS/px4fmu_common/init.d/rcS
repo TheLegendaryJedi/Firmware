@@ -51,12 +51,6 @@ set STARTUP_TUNE 1
 set USE_IO no
 set VEHICLE_TYPE none
 
-# Airframe parameter versioning: airframe maintainers can set this in the
-# airframe startup script, and then increase it by one whenever an airframe
-# parameter is updated - it will ensure that these parameters will be updated
-# when the firmware is flashed.
-set PARAM_DEFAULTS_VER 1
-
 #
 # Mount the procfs.
 #
@@ -171,12 +165,8 @@ else
 	#
 	if param greater SYS_AUTOCONFIG 0
 	then
-		if param compare SYS_AUTOCONFIG 1
-		then
-			# Wipe out params except RC*, flight modes, total flight time, calibration parameters, next flight UUID
-			param reset_all SYS_AUTO* RC* COM_FLTMODE* LND_FLIGHT* TC_* CAL_ACC* CAL_GYRO* COM_FLIGHT* SYS_PARAM_VER
-		fi
-
+		# Wipe out params except RC*, flight modes, total flight time, calibration parameters, next flight UUID
+		param reset_all SYS_AUTO* RC* COM_FLTMODE* LND_FLIGHT* TC_* CAL_ACC* CAL_GYRO* COM_FLIGHT*
 		set AUTOCNF yes
 	fi
 
@@ -239,14 +229,6 @@ else
 	rgbled start -X -q
 	rgbled_ncp5623c start -X -q
 
-	if param greater -s LIGHT_EN_BLINKM 0
-	then
-		if blinkm start -X
-		then
-			blinkm systemstate
-		fi
-	fi
-
 	#
 	# Set parameters and env variables for selected AUTOSTART.
 	#
@@ -270,6 +252,34 @@ else
 	if [ $AUTOCNF = yes ]
 	then
 		param set SYS_AUTOCONFIG 0
+	fi
+
+	#
+	# Check if UAVCAN is enabled, default to it for ESCs.
+	#
+	if param greater -s UAVCAN_ENABLE 0
+	then
+		# Start core UAVCAN module.
+		if uavcan start
+		then
+			if param greater UAVCAN_ENABLE 1
+			then
+				# Start UAVCAN firmware update server and dynamic node ID allocation server.
+				uavcan start fw
+				tune_control play -t 1
+				if param greater UAVCAN_ENABLE 2
+				then
+					set OUTPUT_MODE uavcan_esc
+				fi
+			fi
+		else
+			tune_control play error
+		fi
+	else
+		if param greater -s UAVCAN_V1_ENABLE 0
+		then
+			uavcan_v1 start
+		fi
 	fi
 
 	#
@@ -303,6 +313,8 @@ else
 					else
 						tune_control play -t 18 # tune 18 = PROG_PX4IO_ERR
 					fi
+				else
+					tune_control stop
 				fi
 			fi
 		fi
@@ -412,34 +424,6 @@ else
 
 		camera_trigger start
 		camera_feedback start
-	fi
-
-	#
-	# Check if UAVCAN is enabled, default to it for ESCs.
-	#
-	if param greater -s UAVCAN_ENABLE 0
-	then
-		# Start core UAVCAN module.
-		if uavcan start
-		then
-			if param greater UAVCAN_ENABLE 1
-			then
-				# Start UAVCAN firmware update server and dynamic node ID allocation server.
-				uavcan start fw
-				tune_control play -t 1
-				if param greater UAVCAN_ENABLE 2
-				then
-					set OUTPUT_MODE uavcan_esc
-				fi
-			fi
-		else
-			tune_control play error
-		fi
-	fi
-
-	if param greater -s UAVCAN_V1_ENABLE 0
-	then
-		uavcan_v1 start
 	fi
 
 	#
@@ -570,15 +554,6 @@ else
 		fi
 	fi
 
-	if ! param compare SYS_PARAM_VER ${PARAM_DEFAULTS_VER}
-	then
-		echo "Switched to different parameter version. Resetting parameters."
-		param set SYS_PARAM_VER ${PARAM_DEFAULTS_VER}
-		param set SYS_AUTOCONFIG 2
-		param save
-		reboot
-	fi
-
 #
 # End of autostart.
 #
@@ -603,7 +578,6 @@ unset MIXER
 unset MIXER_AUX
 unset MIXER_FILE
 unset OUTPUT_MODE
-unset PARAM_DEFAULTS_VER
 unset PARAM_FILE
 unset PWM_AUX_OUT
 unset PWM_AUX_RATE
