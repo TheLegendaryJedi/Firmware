@@ -47,8 +47,7 @@ BMI088_Accelerometer::BMI088_Accelerometer(I2CSPIBusOption bus_option, int bus, 
 	if (drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME"_accel: DRDY missed");
 	}
-
-	ConfigureSampleRate(1600);
+	ConfigureSampleRate(BMI088_Accelerometer::RATE);
 }
 
 BMI088_Accelerometer::~BMI088_Accelerometer()

@@ -56,7 +56,7 @@ private:
 	void exit_and_cleanup() override;
 
 	// Sensor Configuration
-	static constexpr uint32_t RATE{400}; // 2000 Hz
+	static constexpr uint32_t RATE{2000}; // 2000 Hz
 	static constexpr float FIFO_SAMPLE_DT{1e6f / RATE};
 
 	static constexpr uint32_t FIFO_MAX_SAMPLES{math::min(FIFO::SIZE / sizeof(FIFO::DATA), sizeof(sensor_gyro_fifo_s::x) / sizeof(sensor_gyro_fifo_s::x[0]))};

@@ -48,8 +48,7 @@ BMI088_Gyroscope::BMI088_Gyroscope(I2CSPIBusOption bus_option, int bus, uint32_t
 	if (drdy_gpio != 0) {
 		_drdy_missed_perf = perf_alloc(PC_COUNT, MODULE_NAME"_gyro: DRDY missed");
 	}
-
-	ConfigureSampleRate(2000);
+	ConfigureSampleRate(BMI088_Gyroscope::RATE);
 }
 
 BMI088_Gyroscope::~BMI088_Gyroscope()
