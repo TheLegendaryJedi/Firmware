@@ -96,6 +96,20 @@ void LandDetector::Run()
 
 	_update_topics();
 
+	if (!_dist_bottom_is_observable) {
+		// we consider the distance to the ground observable if the system is using a range sensor
+		_dist_bottom_is_observable = _vehicle_local_position.dist_bottom_sensor_bitfield &
+					     vehicle_local_position_s::DIST_BOTTOM_SENSOR_RANGE;
+	}
+
+	// Increase land detection time if not close to ground
+	if (_dist_bottom_is_observable && !_vehicle_local_position.dist_bottom_valid) {
+		_set_hysteresis_factor(3);
+
+	} else {
+		_set_hysteresis_factor(1);
+	}
+
 	const hrt_abstime now_us = hrt_absolute_time();
 
 	_freefall_hysteresis.set_state_and_update(_get_freefall_state(), now_us);
@@ -131,6 +145,11 @@ void LandDetector::Run()
 		_land_detected.ground_contact = ground_contactDetected;
 		_land_detected.alt_max = alt_max;
 		_land_detected.in_ground_effect = in_ground_effect;
+		_land_detected.in_descend = _get_in_descend();
+		_land_detected.has_low_throttle = _get_has_low_throttle();
+		_land_detected.horizontal_movement = _get_horizontal_movement();
+		_land_detected.vertical_movement = _get_vertical_movement();
+		_land_detected.close_to_ground_or_skipped_check = _get_close_to_ground_or_skipped_check();
 		_land_detected.timestamp = hrt_absolute_time();
 		_vehicle_land_detected_pub.publish(_land_detected);
 	}

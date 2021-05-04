@@ -9,7 +9,6 @@ px4_add_board(
 	ROMFSROOT px4fmu_common
 	BUILD_BOOTLOADER
 	IO cubepilot_io-v2_default
-	TESTING
 	UAVCAN_INTERFACES 2
 	SERIAL_PORTS
 		TEL1:/dev/ttyS0
@@ -44,13 +43,13 @@ px4_add_board(
 		pca9685_pwm_out
 		power_monitor/ina226
 		#protocol_splitter
+		pwm_input
 		pwm_out_sim
 		pwm_out
 		px4io
 		roboclaw
 		rpm
 		telemetry # all available telemetry drivers
-		#test_ppm
 		tone_alarm
 		uavcan
 	MODULES
@@ -112,7 +111,6 @@ px4_add_board(
 		sd_bench
 		#serial_test
 		system_time
-		#tests # tests and test runner
 		top
 		topic_listener
 		tune_control
