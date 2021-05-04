@@ -12,3 +12,6 @@ bmi088_i2c -G -R 0 -I -a 0x69 start
 
 # Optical flow deck
 vl53l1x start -X
+
+# FLOW on SPI2
+pmw3901 start -s -b 1
